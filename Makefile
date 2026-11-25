@@ -623,6 +623,9 @@ librailroad_dsl: force
 	cd submodules/railroad_dsl && MACOSX_DEPLOYMENT_TARGET=$(DEPLOYMENT_TARGET) $(RUSTUP) run stable cargo build --release --target $(RUST_NATIVE_TARGET) && cp target/$(RUST_NATIVE_TARGET)/release/librailroad_dsl.dylib ../../ThirdParty/librailroad_dsl/lib/librailroad_dsl.dylib && cp include/railroad_dsl.h ../../ThirdParty/librailroad_dsl/include && install_name_tool -id @rpath/librailroad_dsl.dylib ../../ThirdParty/librailroad_dsl/lib/librailroad_dsl.dylib
 endif
 
+paranoid-librailroad-dsl: force
+	/usr/bin/sandbox-exec -f deps.sb $(MAKE) BUILD_DIR="$(BUILD_DIR)" librailroad_dsl
+
 pwmadapters: force
 	cd pwmplugin/ && UNIVERSAL=$(UNIVERSAL) ./build.sh
 
