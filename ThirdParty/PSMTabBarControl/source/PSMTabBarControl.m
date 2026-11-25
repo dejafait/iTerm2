@@ -483,6 +483,7 @@ static const NSTimeInterval PSMTabBarSpringLoadingDelay = 0.6;
     [_collapseAnimTimer invalidate];
     [_collapseStartWidths release];
     [_collapseTargetWidths release];
+    [_wrappingHeightDidChange release];
 
     [self unregisterDraggedTypes];
 
@@ -1742,7 +1743,72 @@ static CAShapeLayer *PSMMaskShapeForPath(NSBezierPath *path, NSRect subviewFrame
 // extras going into the overflow menu. Applies to whichever orientation is in use; the scroll axis is
 // chosen from _orientation.
 - (BOOL)tabBarIsScrollable {
-    return [iTermPreferences boolForKey:kPreferenceKeyScrollableSideTabBar];
+    return !self.wrapsTabs && [iTermPreferences boolForKey:kPreferenceKeyScrollableSideTabBar];
+}
+
+- (void)setWrapsTabs:(BOOL)value {
+    if (_wrapsTabs == value) {
+        return;
+    }
+    _wrapsTabs = value;
+    [self update:NO];
+}
+
+- (void)setWrappingMinimumCellWidth:(CGFloat)value {
+    if (_wrappingMinimumCellWidth == value) {
+        return;
+    }
+    _wrappingMinimumCellWidth = value;
+    [self update:NO];
+}
+
+- (void)setMaximumWrappingRows:(NSUInteger)value {
+    if (_maximumWrappingRows == value) {
+        return;
+    }
+    _maximumWrappingRows = value;
+    [self update:NO];
+}
+
+- (NSUInteger)wrappingColumnCountForWidth:(CGFloat)width {
+    const CGFloat margins = [_style leftMarginForTabBarControl] +
+        [_style rightMarginForTabBarControlWithOverflow:YES addTabButton:self.showAddTabButton];
+    const CGFloat available = MAX(1, width - margins);
+    const CGFloat spacing = _style.intercellSpacing;
+    return MAX(1, (NSUInteger)floor((available + spacing) /
+                                    (MAX(40, self.wrappingMinimumCellWidth) + spacing)));
+}
+
+- (NSUInteger)wrappingRowCountForWidth:(CGFloat)width {
+    NSUInteger count = 0;
+    for (PSMTabBarCell *cell in _cells) {
+        if (!cell.isCollapsedHidden) {
+            count++;
+        }
+    }
+    const NSUInteger columns = [self wrappingColumnCountForWidth:width];
+    const NSUInteger rows = MAX(1, (count + columns - 1) / columns);
+    return self.maximumWrappingRows ? MIN(rows, self.maximumWrappingRows) : rows;
+}
+
+- (NSArray<NSNumber *> *)wrappingCellWidths {
+    const NSUInteger columns = [self wrappingColumnCountForWidth:NSWidth(self.bounds)];
+    const NSUInteger rows = [self wrappingRowCountForWidth:NSWidth(self.bounds)];
+    const CGFloat width = MAX(1, [self availableCellWidthWithOverflow:YES]);
+    const CGFloat cellWidth = MAX(1, floor((width - (columns - 1) * _style.intercellSpacing) / columns));
+    NSMutableArray<NSNumber *> *result = [NSMutableArray array];
+    NSUInteger visible = 0;
+    for (PSMTabBarCell *cell in _cells) {
+        if (cell.isCollapsedHidden) {
+            [result addObject:@0];
+        } else if (visible < columns * rows) {
+            [result addObject:@(cellWidth)];
+            visible++;
+        } else {
+            break;
+        }
+    }
+    return result;
 }
 
 - (BOOL)isVerticalOrientation {
@@ -2062,7 +2128,16 @@ static CAShapeLayer *PSMMaskShapeForPath(NSBezierPath *path, NSRect subviewFrame
         [self cancelCollapseAnimation];
     }
     if ([self orientation] == PSMTabBarHorizontalOrientation) {
-        if ([self tabBarIsScrollable]) {
+        if (self.wrapsTabs) {
+            [self cancelCollapseAnimation];
+            if (_animationTimer) {
+                [_animationTimer invalidate];
+                _animationTimer = nil;
+            }
+            _scrollOffset = 0;
+            NSArray<NSNumber *> *widths = [self wrappingCellWidths];
+            [self finishUpdateWithRegularWidths:widths widthsWithOverflow:widths];
+        } else if ([self tabBarIsScrollable]) {
             [self layoutScrollableHorizontalTabsWithCellCount:cellCount animate:collapseExpand];
         } else if (collapseExpand && cellCount > 0) {
             // Animate toward the POST-toggle arrangement. _lainOutWithOverflow
@@ -2168,6 +2243,12 @@ static CAShapeLayer *PSMMaskShapeForPath(NSBezierPath *path, NSRect subviewFrame
         _adjustingScrollForSelection = NO;
     }
     [self setNeedsDisplay:YES];
+    if (self.wrapsTabs && self.wrappingHeightDidChange) {
+        const CGFloat desiredHeight = self.height * [self wrappingRowCountForWidth:NSWidth(self.bounds)];
+        if (fabs(NSHeight(self.bounds) - desiredHeight) > 0.5) {
+            self.wrappingHeightDidChange();
+        }
+    }
 }
 
 + (NSArray<PSMTabBarCell *> *)cellsByInsertingTabGroupChipsInto:(NSArray<PSMTabBarCell *> *)tabCells
@@ -3394,6 +3475,11 @@ typedef struct {
 
         if ([self orientation] == PSMTabBarHorizontalOrientation) {
             cellRect = [self.style frameForAddTabButtonWithCellWidths:newValues height:self.bounds.size.height];
+            if (self.wrapsTabs) {
+                cellRect.origin.x = NSWidth(self.bounds) -
+                    [_style rightMarginForTabBarControlWithOverflow:NO addTabButton:YES];
+                cellRect.origin.y = self.insets.top;
+            }
             if (scrollingOverflow && NSMaxX(cellRect) > self.bounds.size.width) {
                 // The style placed the button after the last tab, which is now scrolled off the right
                 // edge. Pull it back into the right margin. Styles that already pin it in-bounds (e.g.
@@ -3456,6 +3542,9 @@ typedef struct {
 
     // Set up cells with frames and rects
     const BOOL horizontalLayout = ([self orientation] == PSMTabBarHorizontalOrientation);
+    const BOOL wrapping = horizontalLayout && self.wrapsTabs;
+    const NSUInteger columns = wrapping ? [self wrappingColumnCountForWidth:NSWidth(self.bounds)] : 1;
+    NSUInteger wrappingIndex = 0;
     for (int i = 0; i < cellCount; i++) {
         PSMTabBarCell *cell = [_cells objectAtIndex:i];
         int tabState = 0;
@@ -3489,6 +3578,11 @@ typedef struct {
                 // Chip cells' width comes from the widths array like any
                 // other cell; there is no separate gap to reserve now.
                 cellRect.size.width = [[newValues objectAtIndex:i] floatValue];
+                if (wrapping) {
+                    cellRect.origin.x = generic.origin.x + (wrappingIndex % columns) *
+                        (cellRect.size.width + intercellSpacing);
+                    cellRect.origin.y = generic.origin.y + (wrappingIndex / columns) * self.height;
+                }
             } else {
                 cellRect.size.width = [self frame].size.width;
                 // Chip cells reserve their own (style-aware) height; tabs use the generic height.
@@ -3538,14 +3632,14 @@ typedef struct {
                 [cell setState:NSControlStateValueOn];
                 tabState |= PSMTab_SelectedMask;
                 // previous cell
-                if (i > 0) {
+                if (i > 0 && (!wrapping || wrappingIndex % columns != 0)) {
                     [[_cells objectAtIndex:i-1] setTabState:([(PSMTabBarCell *)[_cells objectAtIndex:i-1] tabState] | PSMTab_RightIsSelectedMask)];
                 }
                 // next cell - see below
             } else {
                 [cell setState:NSControlStateValueOff];
                 // see if prev cell was selected
-                if (i > 0) {
+                if (i > 0 && (!wrapping || wrappingIndex % columns != 0)) {
                     if ([[_cells objectAtIndex:i-1] state] == NSControlStateValueOn){
                         tabState |= PSMTab_LeftIsSelectedMask;
                     }
@@ -3558,6 +3652,16 @@ typedef struct {
                 tabState |= PSMTab_PositionLeftMask;
             } else if (i-1 == cellCount) {
                 tabState |= PSMTab_PositionRightMask;
+            }
+            if (wrapping) {
+                tabState &= ~(PSMTab_PositionLeftMask | PSMTab_PositionRightMask | PSMTab_PositionSingleMask);
+                if (wrappingIndex % columns == 0) {
+                    tabState |= PSMTab_PositionLeftMask;
+                }
+                if (wrappingIndex % columns == columns - 1 || i == numberOfVisibleCells - 1) {
+                    tabState |= PSMTab_PositionRightMask;
+                }
+                wrappingIndex++;
             }
             [cell setTabState:tabState];
             [cell setIsInOverflowMenu:NO];
@@ -4875,6 +4979,7 @@ static CFAbsoluteTime gDragMoveFirstTime = 0;
 - (id)cellForPoint:(NSPoint)point
          cellFrame:(NSRectPointer)outFrame {
     if ([self orientation] == PSMTabBarHorizontalOrientation &&
+        !self.wrapsTabs &&
         !NSPointInRect(point, [self genericCellRectWithOverflow:_lainOutWithOverflow])) {
         return nil;
     }

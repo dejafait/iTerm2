@@ -417,6 +417,8 @@ extern NSString *const iTermAdvancedSettingsDidChange;
 + (BOOL)openUntitledFile;
 + (int)optimumTabWidth;
 + (int)scrollableTabWidth;
++ (BOOL)wrapBottomTabBar;
++ (int)wrappedTabMinimumWidth;
 + (BOOL)oscColorReport16Bits;
 + (BOOL)p3;
 + (int)pasteHistoryMaxOptions;

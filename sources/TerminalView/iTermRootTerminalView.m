@@ -280,6 +280,14 @@ typedef struct {
 
         self.tabBarControl = [[iTermTabBarControlView alloc] initWithFrame:tabBarFrame];
         self.tabBarControl.height = [delegate rootTerminalViewHeightOfTabBar:self];
+        __weak typeof(self) weakSelf = self;
+        self.tabBarControl.wrappingHeightDidChange = ^{
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (weakSelf && !weakSelf.tabBarControlOnLoan) {
+                    [weakSelf layoutSubviews];
+                }
+            });
+        };
 
         _tabBarControl.itermTabBarDelegate = self;
 
@@ -1873,6 +1881,9 @@ static NSColor *iTermWindowBorderColorFromSetting(NSString *setting) {
 
     // Tab bar dimensions
     inputs.tabBarHeight = _tabBarControl.height;
+    if (_tabBarControl.wrapsTabs) {
+        inputs.tabBarHeight *= [_tabBarControl wrappingRowCountForWidth:NSWidth(self.bounds)];
+    }
     inputs.leftTabBarWidth = _leftTabBarWidth;
 
     // Toolbelt
@@ -2294,6 +2305,15 @@ static NSColor *iTermWindowBorderColorFromSetting(NSString *setting) {
     [self.tabBarControl setScrollableTabWidth:[iTermAdvancedSettingsModel scrollableTabWidth]];
     [self.tabBarControl setPinnedTabWidth:[iTermAdvancedSettingsModel pinnedTabWidth]];
     self.tabBarControl.smartTruncation = [iTermAdvancedSettingsModel tabTitlesUseSmartTruncation];
+    self.tabBarControl.wrapsTabs =
+        !_tabBarControlOnLoan &&
+        [iTermPreferences intForKey:kPreferenceKeyTabPosition] == PSMTab_BottomTab &&
+        [iTermAdvancedSettingsModel wrapBottomTabBar];
+    self.tabBarControl.wrappingMinimumCellWidth = MAX(40, [iTermAdvancedSettingsModel wrappedTabMinimumWidth]);
+    // Keep terminal contents usable in small windows. Extra tabs remain
+    // reachable through the existing overflow menu.
+    self.tabBarControl.maximumWrappingRows = MAX(1, (NSUInteger)floor(NSHeight(self.bounds) * 0.4 /
+                                                                       MAX(1, self.tabBarControl.height)));
 
     _backgroundImage.frame = self.bounds;
     _windowBorderView.frame = self.bounds;
