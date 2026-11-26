@@ -328,6 +328,8 @@ extern const CGFloat PSMTabBarProgressBarHeight;
 // height; height remains the height of a single row.
 @property(nonatomic) BOOL wrapsTabs;
 @property(nonatomic) CGFloat wrappingMinimumCellWidth;
+// Zero chooses columns from the minimum width; positive values fix the count.
+@property(nonatomic) NSUInteger wrappingPreferredColumnCount;
 @property(nonatomic) NSUInteger maximumWrappingRows;
 @property(nonatomic, copy, nullable) void (^wrappingHeightDidChange)(void);
 - (NSUInteger)wrappingColumnCountForWidth:(CGFloat)width;

@@ -1770,7 +1770,18 @@ static CAShapeLayer *PSMMaskShapeForPath(NSBezierPath *path, NSRect subviewFrame
     [self update:NO];
 }
 
+- (void)setWrappingPreferredColumnCount:(NSUInteger)value {
+    if (_wrappingPreferredColumnCount == value) {
+        return;
+    }
+    _wrappingPreferredColumnCount = value;
+    [self update:NO];
+}
+
 - (NSUInteger)wrappingColumnCountForWidth:(CGFloat)width {
+    if (self.wrappingPreferredColumnCount > 0) {
+        return MIN(100, self.wrappingPreferredColumnCount);
+    }
     const CGFloat margins = [_style leftMarginForTabBarControl] +
         [_style rightMarginForTabBarControlWithOverflow:YES addTabButton:self.showAddTabButton];
     const CGFloat available = MAX(1, width - margins);

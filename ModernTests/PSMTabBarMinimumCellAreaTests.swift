@@ -19,6 +19,20 @@ import XCTest
 @testable import iTerm2SharedARC
 
 final class PSMTabBarMinimumCellAreaTests: XCTestCase {
+    func testFixedWrappingColumnsStayFixedWhenWindowWidthChanges() {
+        control.wrapsTabs = true
+        control.wrappingMinimumCellWidth = 160
+        control.wrappingPreferredColumnCount = 6
+        addTabCells(7)
+        XCTAssertEqual(control.wrappingColumnCount(forWidth: 900), 6)
+        XCTAssertEqual(control.wrappingColumnCount(forWidth: 450), 6)
+        XCTAssertEqual(control.wrappingRowCount(forWidth: 450), 2)
+        control.wrappingPreferredColumnCount = 0
+        XCTAssertLessThan(control.wrappingColumnCount(forWidth: 450), 6)
+        control.wrappingPreferredColumnCount = 101
+        XCTAssertEqual(control.wrappingColumnCount(forWidth: 900), 100)
+    }
+
     #if compiler(>=6.2)
     func testWrappedTahoeClipIncludesSecondRow() throws {
         guard #available(macOS 26, *) else { throw XCTSkip("Tahoe style requires macOS 26") }

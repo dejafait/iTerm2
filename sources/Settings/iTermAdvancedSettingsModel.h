@@ -419,6 +419,7 @@ extern NSString *const iTermAdvancedSettingsDidChange;
 + (int)scrollableTabWidth;
 + (BOOL)wrapBottomTabBar;
 + (int)wrappedTabMinimumWidth;
++ (int)wrappedTabColumnCount;
 + (BOOL)oscColorReport16Bits;
 + (BOOL)p3;
 + (int)pasteHistoryMaxOptions;

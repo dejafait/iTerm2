@@ -2310,6 +2310,7 @@ static NSColor *iTermWindowBorderColorFromSetting(NSString *setting) {
         [iTermPreferences intForKey:kPreferenceKeyTabPosition] == PSMTab_BottomTab &&
         [iTermAdvancedSettingsModel wrapBottomTabBar];
     self.tabBarControl.wrappingMinimumCellWidth = MAX(40, [iTermAdvancedSettingsModel wrappedTabMinimumWidth]);
+    self.tabBarControl.wrappingPreferredColumnCount = MAX(0, [iTermAdvancedSettingsModel wrappedTabColumnCount]);
     // Keep terminal contents usable in small windows. Extra tabs remain
     // reachable through the existing overflow menu.
     self.tabBarControl.maximumWrappingRows = MAX(1, (NSUInteger)floor(NSHeight(self.bounds) * 0.4 /
