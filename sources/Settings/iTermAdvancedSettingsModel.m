@@ -540,6 +540,7 @@ DEFINE_BOOL(showPinnedIndicator, NO, SECTION_HOTKEY, NSLocalizedStringWithDefaul
 #pragma mark General
 
 #define SECTION_GENERAL @"General"
+DEFINE_SETTABLE_BOOL(portraitSettingsLayout, PortraitSettingsLayout, NO, SECTION_GENERAL, NSLocalizedStringWithDefaultValue(@"AdvancedSetting.portraitSettingsLayout", nil, [NSBundle mainBundle], @"Use a resizable portrait-friendly Settings window.\nAt widths up to 900 points, settings flow into vertical rows and scroll vertically. Profiles move above their settings. The layout supports an 800-point window without shrinking text. Reopen Settings after changing this option.", @"Advanced setting: portrait-friendly settings layouts for narrow displays"));
 
 DEFINE_SETTABLE_STRING(searchCommand, SearchCommand, @"https://google.com/search?q=%@", SECTION_GENERAL, NSLocalizedStringWithDefaultValue(@"AdvancedSetting.searchCommand", nil, [NSBundle mainBundle], @"Template for URL of search engine.\niTerm2 replaces the string “%@” with the text to search for. Query parameter percent escaping is used.", @"Advanced setting: searchCommand"));
 DEFINE_SETTABLE_STRING(searchSuggestURL, SearchSuggestURL, @"https://suggestqueries.google.com/complete/search?client=firefox&q=%@", SECTION_GENERAL, NSLocalizedStringWithDefaultValue(@"AdvancedSetting.searchSuggestURL", nil, [NSBundle mainBundle], @"Template of URL for typeahead search suggestions.\niTerm replaces the string “%@” with the text to search for. Query parameter percent escaping is used.", @"Advanced setting: searchSuggestURL"));

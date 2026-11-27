@@ -16,7 +16,66 @@
 import XCTest
 @testable import iTerm2SharedARC
 
+private final class MirroredScreenshotCanvas: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.white.setFill()
+        bounds.fill()
+        ("Terminal content — sample" as NSString).draw(at: NSPoint(x: 24, y: 240),
+            withAttributes: [.font: NSFont.monospacedSystemFont(ofSize: 17, weight: .regular),
+                             .foregroundColor: NSColor.black])
+    }
+}
+
 final class PSMMirroredTabBarTests: XCTestCase {
+    #if compiler(>=6.2)
+    func testOppositeWrappingBarsRenderUniformSampleRows() throws {
+        guard #available(macOS 26, *) else { throw XCTSkip("Tahoe requires macOS 26") }
+        let previous = iTermAdvancedSettingsModel.paletteTabBarStyle()
+        iTermAdvancedSettingsModel.setPaletteTabBarStyle(true)
+        defer { iTermAdvancedSettingsModel.setPaletteTabBarStyle(previous) }
+        let root = MirroredScreenshotCanvas(frame: NSRect(x: 0, y: 0, width: 900, height: 500))
+        let primary = PSMTabBarControl(frame: NSRect(x: 0, y: 0, width: 900, height: 84))
+        let mirror = PSMTabBarControl(frame: NSRect(x: 0, y: 416, width: 900, height: 84))
+        let tabs = NSTabView()
+        let delegate = Delegate()
+        primary.tabView = tabs
+        tabs.delegate = primary
+        primary.delegate = delegate
+        mirror.delegate = delegate
+        primary.mirroredTabBar = mirror
+        for bar in [primary, mirror] {
+            let style = PSMTahoeLightHighContrastTabStyle()
+            style.tabBar = bar
+            bar.style = style
+            bar.height = 42
+            bar.wrapsTabs = true
+            bar.wrappingPreferredColumnCount = 6
+            bar.maximumWrappingRows = 4
+            root.addSubview(bar)
+        }
+        for index in 0..<12 {
+            let item = NSTabViewItem(identifier: index)
+            item.label = "Task \(index + 1) " + ["⚪⚫", "🔺▲△", "✔️✅"][index % 3]
+            tabs.addTabViewItem(item)
+        }
+        primary.updateWithoutAnimation()
+        primary.synchronizeMirroredTabBar()
+        for bar in [primary, mirror] {
+            XCTAssertEqual(bar.cells().count, 12)
+            for cell in bar.cells() as! [PSMTabBarCell] { XCTAssertEqual(cell.frame.height, 36) }
+        }
+        let bitmap = try XCTUnwrap(root.bitmapImageRepForCachingDisplay(in: root.bounds))
+        root.cacheDisplay(in: root.bounds, to: bitmap)
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent(".build/native-screenshots")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+            .write(to: directory.appendingPathComponent("opposite-bars.png"))
+        primary.mirroredTabBar = nil
+        tabs.delegate = nil
+    }
+    #endif
     private final class Delegate: NSObject, PSMTabBarControlDelegate {
         var selections = 0
         var closes = 0
