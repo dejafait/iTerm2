@@ -141,6 +141,10 @@ Appearance can be edited without rebuilding or restarting. Create `tab-style.jso
 
 ## Synchronized bars on opposite sides
 
+![The same tabs above and below the terminal](docs/screenshots/opposite-bars.png)
+
+Native rendering fixture with sample tabs and placeholder terminal content.
+
 The third feature adds an optional second native navigation bar on the opposite edge. Open **Settings → Advanced**, search **Show tab bars on opposite sides**, and enable it. It is disabled by default and can be toggled without restarting. The stored key remains `ShowTopAndBottomTabBars` for compatibility.
 
 - Top or Bottom in **Appearance → General → Tab bar location** gives top + bottom.
