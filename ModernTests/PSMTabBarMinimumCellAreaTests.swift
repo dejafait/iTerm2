@@ -18,6 +18,13 @@
 import XCTest
 @testable import iTerm2SharedARC
 
+#if compiler(>=6.2)
+@available(macOS 26, *)
+private final class ActiveWindowScreenshotStyle: PSMTahoeLightHighContrastTabStyle {
+    override var windowIsMainAndAppIsActive: Bool { true }
+}
+#endif
+
 final class PSMTabBarMinimumCellAreaTests: XCTestCase {
     func testFixedWrappingColumnsStayFixedWhenWindowWidthChanges() {
         control.wrapsTabs = true
@@ -80,7 +87,7 @@ final class PSMTabBarMinimumCellAreaTests: XCTestCase {
         }
         iTermAdvancedSettingsModel.setPaletteTabBarStyle(true)
         iTermAdvancedSettingsModel.setDefaultTabBarHeight(36)
-        let style = PSMTahoeLightHighContrastTabStyle()
+        let style = ActiveWindowScreenshotStyle()
         style.tabBar = control
         control.style = style
         control.wrapsTabs = true
@@ -99,12 +106,41 @@ final class PSMTabBarMinimumCellAreaTests: XCTestCase {
         XCTAssertEqual(cells[1].frame.minX - cells[0].frame.maxX, 6, accuracy: 0.01)
         XCTAssertEqual(cells[6].frame.minY - cells[0].frame.maxY, 6, accuracy: 0.01)
         for cell in cells {
+            XCTAssertEqual(cell.frame.height, control.height - 6,
+                           "Every column and row must use the original slot height")
             let center = NSPoint(x: cell.frame.midX, y: cell.frame.midY)
             XCTAssertTrue((control.cell(for: center, cellFrame: nil) as? PSMTabBarCell) === cell)
         }
+        _ = control.perform(Selector(("_setupCells:")), with: widths)
+        for cell in cells {
+            XCTAssertEqual(cell.frame.height, control.height - 6,
+                           "Repeated relayout must not shrink any tab")
+        }
+        for (index, cell) in cells.enumerated() {
+            cell.stringValue = ["Build ⚪⚫", "Review 🔺▲△", "Result ✔️✅"][index % 3] + " \(index + 1)"
+            cell.hasCloseButton = false
+            cell.state = index == 0 ? .on : .off
+        }
+        let snapshots = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent(".build/native-screenshots")
+        try FileManager.default.createDirectory(at: snapshots, withIntermediateDirectories: true)
+        let bitmap = try XCTUnwrap(control.bitmapImageRepForCachingDisplay(in: control.bounds))
+        control.cacheDisplay(in: control.bounds, to: bitmap)
+        try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+            .write(to: snapshots.appendingPathComponent("palette-three-rows.png"))
         iTermAdvancedSettingsModel.setPaletteTabBarStyle(false)
         XCTAssertFalse(style.usesPaletteButtons)
         XCTAssertEqual(style.intercellSpacing, 2)
+        control.height = 36
+        control.frame.size.height = 108
+        let nativeWidths = try XCTUnwrap(control.perform(Selector(("wrappingCellWidths")))?.takeUnretainedValue() as? NSArray)
+        _ = control.perform(Selector(("_setupCells:")), with: nativeWidths)
+        let nativeBitmap = try XCTUnwrap(control.bitmapImageRepForCachingDisplay(in: control.bounds))
+        control.cacheDisplay(in: control.bounds, to: nativeBitmap)
+        try XCTUnwrap(nativeBitmap.representation(using: .png, properties: [:]))
+            .write(to: snapshots.appendingPathComponent("multirow-three-rows.png"))
     }
 
     func testPaletteDrawingKeepsBlackWhiteContrastWithoutAKeyWindow() throws {

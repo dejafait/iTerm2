@@ -549,7 +549,7 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
             let top = PaletteConfiguration.shared.number("paddingTop", fallback: 0)
             let bottom = PaletteConfiguration.shared.number("paddingBottom", fallback: 0)
             return NSRect(x: rect.minX, y: rect.minY + gap / 2 + top,
-                          width: rect.width, height: max(1, rect.height - gap - top - bottom))
+                          width: rect.width, height: max(1, generic.height - gap - top - bottom))
         }
         var frame = rect
         if _orientation == .horizontalOrientation {
