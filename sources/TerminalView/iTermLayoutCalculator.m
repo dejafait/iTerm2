@@ -208,6 +208,15 @@ const int kLayoutTabPositionRight = 3;
         outputs.decorationHeightTop += inputs.divisionViewHeight;
     }
 
+    if (!inputs.tabBarOnLoan && !inputs.tabBarFlashing && inputs.mirroredTabBarHeight > 0) {
+        outputs.mirroredTabBarFrame = CGRectMake(
+            0,
+            inputs.contentViewHeight - outputs.decorationHeightTop - inputs.mirroredTabBarHeight,
+            CGRectGetWidth(outputs.tabBarFrame),
+            inputs.mirroredTabBarHeight);
+        outputs.decorationHeightTop += inputs.mirroredTabBarHeight;
+    }
+
     if (!inputs.tabBarFlashing) {
         outputs.decorationHeightBottom += inputs.tabBarHeight;
     }

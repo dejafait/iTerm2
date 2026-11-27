@@ -418,6 +418,8 @@ extern NSString *const iTermAdvancedSettingsDidChange;
 + (int)optimumTabWidth;
 + (int)scrollableTabWidth;
 + (BOOL)wrapBottomTabBar;
++ (BOOL)showTopAndBottomTabBars;
++ (void)setShowTopAndBottomTabBars:(BOOL)value;
 + (BOOL)paletteTabBarStyle;
 + (void)setPaletteTabBarStyle:(BOOL)value;
 + (int)wrappedTabMinimumWidth;

@@ -13,6 +13,45 @@ import XCTest
 
 final class iTermLayoutCalculatorTest: XCTestCase {
 
+    func testMirroredBottomBarReservesTopSpaceBeforeStatusBar() {
+        for fullscreen in [false, true] {
+            for statusOnTop in [false, true] {
+                var inputs = makeDefaultInputs()
+                inputs.tabPosition = kLayoutTabPositionBottom
+                inputs.tabBarHeight = 72
+                inputs.mirroredTabBarHeight = 72
+                inputs.notchInset = 30
+                inputs.divisionViewVisible = true
+                inputs.hasStatusBar = true
+                inputs.statusBarOnTop = ObjCBool(statusOnTop)
+                inputs.inFullscreen = ObjCBool(fullscreen)
+                inputs.shouldShowToolbelt = true
+                let result = iTermLayoutCalculator.calculateLayout(with: inputs)
+                XCTAssertEqual(result.mirroredTabBarFrame, CGRect(x: 0, y: 497, width: 600, height: 72))
+                XCTAssertEqual(result.tabViewFrame.height, 404)
+                XCTAssertEqual(result.tabViewFrame.width, 600)
+                XCTAssertLessThanOrEqual(result.tabViewFrame.maxY, result.mirroredTabBarFrame.minY)
+                XCTAssertGreaterThanOrEqual(result.tabViewFrame.minY, result.tabBarFrame.maxY)
+                XCTAssertFalse(result.statusBarFrame.intersects(result.mirroredTabBarFrame))
+            }
+        }
+    }
+
+    func testMirroredBarDoesNotReserveSpaceWhenHiddenFlashingOrVertical() {
+        var inputs = makeDefaultInputs()
+        inputs.mirroredTabBarHeight = 56
+        for position in [kLayoutTabPositionTop, kLayoutTabPositionLeft, kLayoutTabPositionRight] {
+            inputs.tabPosition = position
+            XCTAssertEqual(iTermLayoutCalculator.calculateLayout(with: inputs).mirroredTabBarFrame, .zero)
+        }
+        inputs.tabPosition = kLayoutTabPositionBottom
+        inputs.tabBarVisible = false
+        XCTAssertEqual(iTermLayoutCalculator.calculateLayout(with: inputs).mirroredTabBarFrame, .zero)
+        inputs.tabBarVisible = true
+        inputs.tabBarFlashing = true
+        XCTAssertEqual(iTermLayoutCalculator.calculateLayout(with: inputs).mirroredTabBarFrame, .zero)
+    }
+
     // MARK: - Test Fixtures
 
     /// Creates default inputs with reasonable test values
