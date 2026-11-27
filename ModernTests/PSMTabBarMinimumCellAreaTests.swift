@@ -105,6 +105,8 @@ final class PSMTabBarMinimumCellAreaTests: XCTestCase {
         XCTAssertEqual(PSMTahoeTabStyle.paletteRowHeight, 64)
         XCTAssertTrue(config.apply(data: Data(##"{"height":-10,"rowGap":0}"##.utf8)))
         XCTAssertEqual(PSMTahoeTabStyle.paletteRowHeight, 16)
+        config.apply(data: Data(##"{"height":36,"rowGap":6,"paddingTop":2,"paddingBottom":4}"##.utf8))
+        XCTAssertEqual(PSMTahoeTabStyle.paletteRowHeight, 48)
     }
 
     func testPaletteFourStatesAndExplicitTruncation() throws {

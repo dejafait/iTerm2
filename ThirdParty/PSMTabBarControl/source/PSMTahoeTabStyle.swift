@@ -39,8 +39,9 @@ final class PaletteConfiguration {
         let modified = attributes?[.modificationDate] as? Date
         guard !loaded || modified != stamp else { return }
         loaded = true
-        guard let data = try? Data(contentsOf: Self.url), apply(data: data) else { return }
         stamp = modified
+        guard ((attributes?[.size] as? NSNumber)?.intValue ?? 0) < 1_048_576,
+              let data = try? Data(contentsOf: Self.url), apply(data: data) else { return }
         if notify {
             NotificationCenter.default.post(name: Notification.Name("kRefreshTerminalNotification"), object: nil)
         }
@@ -109,7 +110,7 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
             ? iTermAdvancedSettingsModel.customTabBarFontSize() : 17
         let config = PaletteConfiguration.shared
         let height = config.number("height", fallback: max(36, iTermAdvancedSettingsModel.defaultTabBarHeight(), titleSize + 19), minimum: 16, maximum: 240)
-        return height + config.number("rowGap", fallback: 6)
+        return height + config.number("rowGap", fallback: 6) + config.number("paddingTop", fallback: 0) + config.number("paddingBottom", fallback: 0)
     }
     
     @objc var tabBarColor: NSColor {
@@ -545,8 +546,10 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
     func adjustedCellRect(_ rect: NSRect, generic: NSRect) -> NSRect {
         if usesPaletteButtons {
             let gap = PaletteConfiguration.shared.number("rowGap", fallback: 6)
-            return NSRect(x: rect.minX, y: rect.minY + gap / 2,
-                          width: rect.width, height: max(1, rect.height - gap))
+            let top = PaletteConfiguration.shared.number("paddingTop", fallback: 0)
+            let bottom = PaletteConfiguration.shared.number("paddingBottom", fallback: 0)
+            return NSRect(x: rect.minX, y: rect.minY + gap / 2 + top,
+                          width: rect.width, height: max(1, rect.height - gap - top - bottom))
         }
         var frame = rect
         if _orientation == .horizontalOrientation {
@@ -857,8 +860,26 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
         }
 
         if usesPaletteButtons {
-            PaletteConfiguration.shared.color("barBackground", fallback: .white).setFill()
+            let config = PaletteConfiguration.shared
+            let background = config.color("barBackground", fallback: .white)
+            config.color("columnGapColor", fallback: background).setFill()
             rect.fill()
+            let pitch = Self.paletteRowHeight
+            let top = config.number("paddingTop", fallback: 0) + config.number("rowGap", fallback: 6) / 2
+            let bottom = config.number("paddingBottom", fallback: 0) + config.number("rowGap", fallback: 6) / 2
+            var y = rect.minY
+            while y < rect.maxY {
+                config.color("marginTopColor", fallback: background).setFill()
+                NSRect(x: rect.minX, y: y, width: rect.width, height: top).fill()
+                config.color("marginBottomColor", fallback: background).setFill()
+                NSRect(x: rect.minX, y: y + pitch - bottom, width: rect.width, height: bottom).fill()
+                y += pitch
+            }
+            config.color("marginLeftColor", fallback: background).setFill()
+            NSRect(x: rect.minX, y: rect.minY, width: config.number("marginLeft", fallback: 6), height: rect.height).fill()
+            config.color("marginRightColor", fallback: background).setFill()
+            let right = config.number("marginRight", fallback: 6)
+            NSRect(x: rect.maxX - right, y: rect.minY, width: right, height: rect.height).fill()
             for cell in (bar.cells() as? [PSMTabBarCell]) ?? [] {
                 if !cell.isInOverflowMenu && !cell.isCollapsedHidden &&
                     cell.frame.width > 0 && cell.frame.intersects(clipRect) {

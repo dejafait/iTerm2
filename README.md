@@ -70,6 +70,10 @@ Appearance can be edited without rebuilding or restarting. Create `tab-style.jso
     "pin": {
       "enabled": false,
       "position": "right"
+    },
+    "close": {
+      "enabled": true,
+      "position": "left"
     }
   },
   "states": {
@@ -113,13 +117,19 @@ Appearance can be edited without rebuilding or restarting. Create `tab-style.jso
       "fontWeight": "medium",
       "italic": false
     }
-  }
+  },
+  "paddingTop": 0,
+  "paddingBottom": 0,
+  "columnGapColor": "#ffffff",
+  "marginTopColor": "#ffffff",
+  "marginBottomColor": "#ffffff",
+  "marginLeftColor": "#ffffff",
+  "marginRightColor": "#ffffff"
 }
-
 ```
 
-- `height` is the button height in points (16–240), independent of `rowGap`. Together they form row pitch. `columnGap`, `marginLeft`, `marginRight`, `horizontalPadding` and `cornerRadius` control spacing and shape.
-- `barBackground` colors the space around buttons. Colors accept #RRGGBB or #RRGGBBAA.
+- `height` is the button height in points (16–240), independent of `rowGap`. Together with `paddingTop` and `paddingBottom` they form row pitch. `columnGap`, `marginLeft`, `marginRight`, `horizontalPadding` and `cornerRadius` control spacing and shape.
+- `barBackground` colors the space around buttons; `columnGapColor` and `marginTopColor`, `marginBottomColor`, `marginLeftColor`, `marginRightColor` can override each surrounding region. Colors accept #RRGGBB or #RRGGBBAA.
 - The four independent states are selected/unselected × active/inactive window. Each accepts background, foreground, border, borderWidth, fontFamily (PostScript name; empty means system), fontSize, fontWeight (light/regular/medium/semibold/bold/heavy), and italic. The example keeps inactive-window contrast identical and uses a light gray selected background.
 - `truncation`: `head` removes the beginning and preserves the suffix; `tail` preserves the beginning; `middle` keeps both ends; `clip` clips without an ellipsis. This applies consistently to the entire title and its existing emoji, without changing the actual tab name.
 - Native activity, counter, status, graphic, pin and close decorations support enabled and left/right placement. Progress supports enabled and left/right/outline placement. The title’s own emoji remain part of the title; no emoji are synthesized by this renderer.
