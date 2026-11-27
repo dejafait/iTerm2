@@ -34,6 +34,40 @@ final class PSMTabBarMinimumCellAreaTests: XCTestCase {
     }
 
     #if compiler(>=6.2)
+    func testPaletteConfigurationKeepsLastValidSnapshotAndHeight() throws {
+        guard #available(macOS 26, *) else { throw XCTSkip("Tahoe style requires macOS 26") }
+        let config = PaletteConfiguration.shared
+        let previous = try JSONSerialization.data(withJSONObject: config.values)
+        defer { config.apply(data: previous) }
+        XCTAssertTrue(config.apply(data: Data(##"{"version":1,"height":54,"rowGap":10,"states":{"inactiveSelected":{"foreground":"#123456"}}}"##.utf8)))
+        XCTAssertEqual(PSMTahoeTabStyle.paletteRowHeight, 64)
+        XCTAssertEqual(config.state(selected: true, active: false)["foreground"] as? String, "#123456")
+        XCTAssertFalse(config.apply(data: Data("{".utf8)))
+        XCTAssertEqual(PSMTahoeTabStyle.paletteRowHeight, 64)
+        XCTAssertFalse(config.apply(data: Data(##"{"version":2}"##.utf8)))
+        XCTAssertEqual(PSMTahoeTabStyle.paletteRowHeight, 64)
+        XCTAssertTrue(config.apply(data: Data(##"{"height":-10,"rowGap":0}"##.utf8)))
+        XCTAssertEqual(PSMTahoeTabStyle.paletteRowHeight, 16)
+    }
+
+    func testPaletteFourStatesAndExplicitTruncation() throws {
+        guard #available(macOS 26, *) else { throw XCTSkip("Tahoe style requires macOS 26") }
+        let config = PaletteConfiguration.shared
+        let previous = try JSONSerialization.data(withJSONObject: config.values)
+        defer { config.apply(data: previous) }
+        config.apply(data: Data(##"{"truncation":"head","states":{"inactiveSelected":{"foreground":"#000000","background":"#eeeeee","fontSize":23,"fontWeight":"bold"},"inactiveUnselected":{"foreground":"#112233"}}}"##.utf8))
+        let style = PSMTahoeTabStyle()
+        let attributes = style.paletteTitleAttributes(selected: true)
+        XCTAssertEqual((attributes[.font] as? NSFont)?.pointSize, 23)
+        let color = try XCTUnwrap((attributes[.foregroundColor] as? NSColor)?.usingColorSpace(.sRGB))
+        XCTAssertEqual(color.redComponent, 0)
+        XCTAssertEqual(color.greenComponent, 0)
+        XCTAssertEqual(color.blueComponent, 0)
+        XCTAssertEqual((attributes[.paragraphStyle] as? NSParagraphStyle)?.lineBreakMode, .byTruncatingHead)
+        XCTAssertNotEqual(config.state(selected: true, active: false)["foreground"] as? String,
+                          config.state(selected: false, active: false)["foreground"] as? String)
+    }
+
     func testPaletteSixColumnsUseButtonGeometryAndHitTargets() throws {
         guard #available(macOS 26, *) else { throw XCTSkip("Tahoe style requires macOS 26") }
         let previous = iTermAdvancedSettingsModel.paletteTabBarStyle()
