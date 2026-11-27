@@ -42,7 +42,7 @@ For the original project's build instructions and general documentation, see:
 
 ## Project structure
 
-`feature/multirow-tab-bar` contains the current work and is the default branch shown on this fork's homepage. `main` preserves the official release baseline used for this prototype. Separate integration branches can be introduced later when there are multiple independent features.
+Feature PRs are stacked: `main` → `feature/multirow-tab-bar` → `feature/palette-tab-style` → `feature/top-and-bottom-tab-bars`. Each README describes the features available at that point. `release` tracks the top of the stack and is the default branch. `main` preserves the official baseline; there is no personal integration branch.
 
 ## Credits and license
 
