@@ -30,6 +30,10 @@ The implementation and current testing notes are available in [the draft pull re
 
 ## Configurable palette-style tabs
 
+![Palette buttons in three rows](docs/screenshots/palette-three-rows.png)
+
+Native renderer fixture with sample titles and an active-window state; no private terminal content.
+
 The second feature is an opt-in, high-contrast button style for wrapping horizontal tabs on macOS 26 or later (Tahoe renderer). Enable **Settings → Advanced → Palette tab bar style** after enabling wrapping bottom tabs. No default theme is changed.
 
 Appearance can be edited without rebuilding or restarting. Create `tab-style.json` in the application’s Application Support directory: normally `~/Library/Application Support/iTerm2/`, or the explicit suite directory when launched with `-suite` (for example `iterm22-preview`). The file is checked twice per second; valid changes trigger the preferences/layout refresh. Invalid JSON or an unsupported version retains the last valid snapshot.
