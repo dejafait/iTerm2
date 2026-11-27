@@ -222,6 +222,7 @@ typedef struct {
     BOOL _windowNameBesideTabsTextWidthValid;
     iTermFakeWindowTitleLabel *_windowTitleLabel;
     iTermTabBarBacking *_tabBarBacking;
+    iTermTabBarControlView *_mirroredTabBarControl;
     iTermGenericStatusBarContainer *_statusBarContainer;
     NSDictionary *_desiredToolbeltProportions;
     iTermWindowSizeView *_windowSizeView;
@@ -429,12 +430,15 @@ typedef struct {
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     _tabBarControl.itermTabBarDelegate = nil;
+    _tabBarControl.mirroredTabBar = nil;
+    _mirroredTabBarControl.itermTabBarDelegate = nil;
     _verticalTabBarDragHandle.delegate = nil;
 }
 
 - (void)advancedSettingsDidChange:(NSNotification *)notification {
     [self updateBorderViews];
     [self updateWindowNameBesideTabs];
+    [self layoutSubviews];
 }
 
 - (void)setDelegate:(id<iTermRootTerminalViewDelegate>)delegate {
@@ -1865,6 +1869,70 @@ static NSColor *iTermWindowBorderColorFromSetting(NSString *setting) {
 
 #pragma mark - Layout Calculator Integration
 
+- (BOOL)wantsMirroredTabBar {
+    return [iTermAdvancedSettingsModel showTopAndBottomTabBars] &&
+        [iTermPreferences intForKey:kPreferenceKeyTabPosition] == PSMTab_BottomTab &&
+        !_tabBarControlOnLoan;
+}
+
+- (CGFloat)mirroredTabBarHeight {
+    if (![self wantsMirroredTabBar] || !self.tabBarShouldBeVisible || self.tabBarControl.flashing) {
+        return 0;
+    }
+    const NSUInteger rows = self.tabBarControl.wrapsTabs
+        ? [self.tabBarControl wrappingRowCountForWidth:NSWidth(self.bounds)] : 1;
+    return self.tabBarControl.height * rows;
+}
+
+- (void)configureMirroredTabBar {
+    if (![self wantsMirroredTabBar]) {
+        self.tabBarControl.mirroredTabBar = nil;
+        _mirroredTabBarControl.itermTabBarDelegate = nil;
+        _mirroredTabBarControl.delegate = nil;
+        [_mirroredTabBarControl removeFromSuperview];
+        _mirroredTabBarControl = nil;
+        return;
+    }
+    if (!_mirroredTabBarControl) {
+        _mirroredTabBarControl = [[iTermTabBarControlView alloc] initWithFrame:NSZeroRect];
+        _mirroredTabBarControl.hideForSingleTab = NO;
+        _mirroredTabBarControl.itermTabBarDelegate = self;
+        _mirroredTabBarControl.autoresizingMask = NSViewWidthSizable | NSViewMinYMargin;
+        [self addSubview:_mirroredTabBarControl];
+    }
+    iTermTabBarControlView *primary = self.tabBarControl;
+    iTermTabBarControlView *mirror = _mirroredTabBarControl;
+    mirror.hidden = YES;  // The bottom layout pass below supplies its final frame.
+    mirror.delegate = primary.delegate;
+    if (mirror.style.class != primary.style.class) {
+        // Styles hold a reference to their owning control; never share one.
+        mirror.style = [[(NSObject *)primary.style class] new];
+    }
+    mirror.style.tabBar = mirror;
+    mirror.orientation = PSMTabBarHorizontalOrientation;
+    mirror.tabLocation = PSMTab_TopTab;
+    mirror.insets = primary.insets;
+    mirror.height = primary.height;
+    mirror.disableTabClose = primary.disableTabClose;
+    mirror.cellMinWidth = primary.cellMinWidth;
+    mirror.cellOptimumWidth = primary.cellOptimumWidth;
+    mirror.sizeCellsToFit = primary.sizeCellsToFit;
+    mirror.stretchCellsToFit = primary.stretchCellsToFit;
+    mirror.scrollableTabWidth = primary.scrollableTabWidth;
+    mirror.pinnedTabWidth = primary.pinnedTabWidth;
+    mirror.smartTruncation = primary.smartTruncation;
+    mirror.wrapsTabs = primary.wrapsTabs;
+    mirror.wrappingMinimumCellWidth = primary.wrappingMinimumCellWidth;
+    mirror.wrappingPreferredColumnCount = primary.wrappingPreferredColumnCount;
+    mirror.maximumWrappingRows = primary.maximumWrappingRows;
+    // The upper bar is a navigation surface. The native drag assistant assumes
+    // one control per tab view, so reordering stays on the original bottom bar.
+    mirror.minimumTabDragDistance = INT_MAX;
+    [mirror unregisterDraggedTypes];
+    [mirror setTabsHaveCloseButtons:[iTermPreferences boolForKey:kPreferenceKeyTabsHaveCloseButton]];
+    primary.mirroredTabBar = mirror;
+}
+
 - (iTermLayoutInputs)layoutInputsForWindow:(NSWindow *)thisWindow {
     iTermLayoutInputs inputs = {0};
 
@@ -1885,6 +1953,7 @@ static NSColor *iTermWindowBorderColorFromSetting(NSString *setting) {
         inputs.tabBarHeight *= [_tabBarControl wrappingRowCountForWidth:NSWidth(self.bounds)];
     }
     inputs.leftTabBarWidth = _leftTabBarWidth;
+    inputs.mirroredTabBarHeight = self.mirroredTabBarHeight;
 
     // Toolbelt
     inputs.toolbeltWidth = floor(self.toolbeltWidth);
@@ -2027,6 +2096,12 @@ static NSColor *iTermWindowBorderColorFromSetting(NSString *setting) {
 
     // Layout status bar using calculator outputs
     [self layoutStatusBarWithOutputs:outputs window:thisWindow];
+
+    if (_mirroredTabBarControl && !CGRectIsEmpty(outputs.mirroredTabBarFrame)) {
+        _mirroredTabBarControl.frame = outputs.mirroredTabBarFrame;
+        _mirroredTabBarControl.hidden = NO;
+        [self.tabBarControl synchronizeMirroredTabBar];
+    }
 
     [self updateDivisionViewAndWindowNumberLabel];
 }
@@ -2313,8 +2388,10 @@ static NSColor *iTermWindowBorderColorFromSetting(NSString *setting) {
     self.tabBarControl.wrappingPreferredColumnCount = MAX(0, [iTermAdvancedSettingsModel wrappedTabColumnCount]);
     // Keep terminal contents usable in small windows. Extra tabs remain
     // reachable through the existing overflow menu.
-    self.tabBarControl.maximumWrappingRows = MAX(1, (NSUInteger)floor(NSHeight(self.bounds) * 0.4 /
+    const CGFloat tabBarHeightFraction = [self wantsMirroredTabBar] ? 0.2 : 0.4;
+    self.tabBarControl.maximumWrappingRows = MAX(1, (NSUInteger)floor(NSHeight(self.bounds) * tabBarHeightFraction /
                                                                        MAX(1, self.tabBarControl.height)));
+    [self configureMirroredTabBar];
 
     _backgroundImage.frame = self.bounds;
     _windowBorderView.frame = self.bounds;

@@ -23,6 +23,8 @@ typedef struct {
 
     /// Tab bar dimensions
     CGFloat tabBarHeight;
+    /// Optional second bar above the terminal when the primary bar is at bottom.
+    CGFloat mirroredTabBarHeight;
     CGFloat leftTabBarWidth;
 
     /// Toolbelt dimensions
@@ -75,6 +77,7 @@ typedef struct {
 
     /// Frame for the tab bar
     CGRect tabBarFrame;
+    CGRect mirroredTabBarFrame;
 
     /// Decoration heights (space consumed by decorations at top/bottom)
     CGFloat decorationHeightTop;

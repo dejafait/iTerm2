@@ -332,6 +332,12 @@ extern const CGFloat PSMTabBarProgressBarHeight;
 @property(nonatomic) NSUInteger wrappingPreferredColumnCount;
 @property(nonatomic) NSUInteger maximumWrappingRows;
 @property(nonatomic, copy, nullable) void (^wrappingHeightDidChange)(void);
+
+// A second presentation of this control's tab view. It never becomes the
+// NSTabView delegate; selection and lifecycle callbacks still run exactly once.
+// Set this only on the primary control, never reciprocally.
+@property(nonatomic, weak, nullable) PSMTabBarControl *mirroredTabBar;
+- (void)synchronizeMirroredTabBar;
 - (NSUInteger)wrappingColumnCountForWidth:(CGFloat)width;
 - (NSUInteger)wrappingRowCountForWidth:(CGFloat)width;
 

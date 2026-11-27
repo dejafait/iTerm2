@@ -2040,6 +2040,68 @@ static CAShapeLayer *PSMMaskShapeForPath(NSBezierPath *path, NSRect subviewFrame
     [self coalesceToolTipUpdates:^{
         [self reallyUpdate:animate];
     }];
+    [self synchronizeMirroredTabBar];
+}
+
+- (void)synchronizeMirroredTabBar {
+    PSMTabBarControl *mirror = self.mirroredTabBar;
+    if (!mirror || mirror == self || [PSMTabBarControl isAnyDragInProgress]) {
+        return;
+    }
+    ITAssertWithMessage(mirror.mirroredTabBar == nil, @"Mirrored tab bars must not form a cycle");
+    mirror.tabView = self.tabView;
+    mirror.tabGroupDataSource = self.tabGroupDataSource;
+    // Reconcile bindings without delivering duplicate close/count callbacks to
+    // the terminal controller. The real tab view retains its primary delegate.
+    id<PSMTabBarControlDelegate> delegate = mirror.delegate;
+    mirror.delegate = nil;
+    NSSet *mirrorItems = [NSSet setWithArray:[mirror representedTabViewItems]];
+    NSSet *tabItems = [NSSet setWithArray:self.tabView.tabViewItems];
+    if (![mirrorItems isEqualToSet:tabItems]) {
+        [mirror tabViewDidChangeNumberOfTabViewItems:self.tabView];
+    }
+    [mirror removeAllTabGroupChipCells];
+    // Reordering does not change the item count. Follow the primary cell order,
+    // including the order during a completed native drag.
+    NSArray *items = [self representedTabViewItems];
+    [mirror->_cells sortUsingComparator:^NSComparisonResult(PSMTabBarCell *a, PSMTabBarCell *b) {
+        const NSUInteger ai = [items indexOfObject:a.representedObject];
+        const NSUInteger bi = [items indexOfObject:b.representedObject];
+        return ai < bi ? NSOrderedAscending : (ai > bi ? NSOrderedDescending : NSOrderedSame);
+    }];
+    for (PSMTabBarCell *cell in mirror->_cells) {
+        const NSUInteger index = [items indexOfObject:cell.representedObject];
+        if (index == NSNotFound) {
+            continue;
+        }
+        const NSUInteger sourceIndex = [_cells indexOfObjectPassingTest:^BOOL(PSMTabBarCell *candidate, NSUInteger i, BOOL *stop) {
+            return candidate.representedObject == cell.representedObject;
+        }];
+        if (sourceIndex == NSNotFound) {
+            continue;
+        }
+        PSMTabBarCell *source = _cells[sourceIndex];
+        cell.tabColor = source.tabColor;
+        cell.subtitleString = source.subtitleString;
+        cell.image = source.image;
+        cell.hasIcon = source.hasIcon;
+        cell.count = source.count;
+        cell.isProcessing = source.isProcessing;
+        cell.progress = source.progress;
+        cell.isPinned = source.isPinned;
+        cell.modifierString = source.modifierString;
+        cell.tabGroupIdentifier = source.tabGroupIdentifier;
+        cell.tabGroupParentIdentifier = source.tabGroupParentIdentifier;
+        cell.isTabGroupParentCollapsed = source.isTabGroupParentCollapsed;
+        cell.isCollapsedHidden = source.isCollapsedHidden;
+    }
+    mirror.delegate = delegate;
+    // Restoring the delegate registers its drop types again. The mirrored
+    // navigation surface must not become a second drag target for one tab view.
+    [mirror unregisterDraggedTypes];
+    mirror->_addTabButton.allowDrags = NO;
+    [mirror normalizeTabGroupChipCells];
+    [mirror updateWithoutAnimation];
 }
 
 - (void)coalesceToolTipUpdates:(void (^)(void))block {

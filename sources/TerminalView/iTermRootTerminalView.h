@@ -103,6 +103,7 @@ extern const NSInteger iTermRootTerminalViewWindowNumberLabelWidth;
 // This is a sometimes-visible control that shows the tabs and lets the user
 // change which is visible.
 @property(nonatomic, readonly) iTermTabBarControlView *tabBarControl;
+@property(nonatomic, readonly) CGFloat mirroredTabBarHeight;
 
 // Gray line dividing tab/title bar from content. Will be nil if a division
 // view isn't needed such as for fullscreen windows or windows without a
