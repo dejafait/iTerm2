@@ -25,6 +25,20 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
     
     // MARK: - PSMTabStyle Properties
     @objc weak var tabBar: PSMTabBarControl?
+
+    // Opt-in, limited to the wrapping bottom bar. Other Tahoe layouts keep
+    // their existing geometry, colors and accessories.
+    var usesPaletteButtons: Bool {
+        tabBar?.wrapsTabs == true &&
+            orientation == .horizontalOrientation &&
+            iTermAdvancedSettingsModel.paletteTabBarStyle()
+    }
+
+    @objc static var paletteRowHeight: CGFloat {
+        let titleSize = iTermAdvancedSettingsModel.useCustomTabBarFontSize()
+            ? iTermAdvancedSettingsModel.customTabBarFontSize() : 17
+        return max(36, iTermAdvancedSettingsModel.defaultTabBarHeight(), titleSize + 19) + 6
+    }
     
     @objc var tabBarColor: NSColor {
         return NSColor(srgbRed: 225.0 / 255.0,
@@ -64,7 +78,7 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
         // tabs' outline strokes (each stroke reaches ~0.5pt past its pill), which
         // matches the system tab bar. At 1pt the two strokes met and the group
         // run's enclosing outline overlapped the neighboring tab.
-        2.0
+        usesPaletteButtons ? 6 : 2
     }
     
     @objc var supportsMultiLineLabels: Bool {
@@ -138,6 +152,9 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
     @objc static var horizontalTabBarHeight = 36.0
     
     var tabBarHeight: CGFloat {
+        if usesPaletteButtons {
+            return Self.paletteRowHeight
+        }
         if orientation == .horizontalOrientation {
             return Self.horizontalTabBarHeight
         } else {
@@ -180,10 +197,16 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
     // MARK: - Control Specific
     
     @objc func leftMarginForTabBarControl() -> Float {
+        if usesPaletteButtons {
+            return Float(tabBar?.insets.left ?? 0) + 6
+        }
         return Float(tabBar?.insets.left ?? 0) + 2.0
     }
     
     @objc func rightMarginForTabBarControl(withOverflow: Bool, addTabButton: Bool) -> Float {
+        if usesPaletteButtons {
+            return Float(tabBar?.insets.right ?? 0) + (withOverflow || addTabButton ? 38 : 6)
+        }
         if withOverflow || addTabButton {
             return 32.0 + Float(tabBar?.insets.right ?? 0) + 2.0
         }
@@ -255,6 +278,11 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
     }
     
     @objc func indicatorRect(forTabCell cell: PSMTabBarCell) -> NSRect {
+        if usesPaletteButtons {
+            // The palette presents the title's own state markers, without a
+            // second activity dot crowding the label.
+            return .zero
+        }
         return Self.indicatorRect(forTabCell: cell,
                                   fontSize: fontSize)
     }
@@ -422,6 +450,10 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
     }
     
     func adjustedCellRect(_ rect: NSRect, generic: NSRect) -> NSRect {
+        if usesPaletteButtons {
+            return NSRect(x: rect.minX, y: rect.minY + 3,
+                          width: rect.width, height: max(1, rect.height - 6))
+        }
         var frame = rect
         if _orientation == .horizontalOrientation {
             frame.origin.y = tabBar?.wrapsTabs == true ? rect.origin.y : containerTopInset
@@ -433,6 +465,9 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
     }
 
     private func backgroundRect(for cellFrame: NSRect) -> NSRect {
+        if usesPaletteButtons {
+            return cellFrame.insetBy(dx: 1, dy: 1)
+        }
         var rect = cellFrame
         rect.origin.y += 2
         rect.size.height -= 3
@@ -447,7 +482,8 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
     /// tab-color tint, progress ring, and dark-theme cap chrome share one
     /// curvature when cell height changes.
     private func pillCornerRadius(for rect: NSRect) -> CGFloat {
-        max(0, rect.height / 2.0)
+        if usesPaletteButtons { return min(7, max(0, rect.height / 2)) }
+        return max(0, rect.height / 2.0)
     }
 
     @objc func previewOutlinePath(forTabCell cell: PSMTabBarCell, lineWidth: CGFloat) -> NSBezierPath? {
@@ -513,6 +549,10 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
     }
     
     @objc func drawTabCell(_ cell: PSMTabBarCell, highlightAmount: CGFloat) {
+        if usesPaletteButtons {
+            drawPaletteCell(cell)
+            return
+        }
         let horizontal = (_orientation == .horizontalOrientation)
         let rowCells = (tabBar?.cells() as? [PSMTabBarCell] ?? []).filter {
             !$0.isCollapsedHidden && $0.frame.width > 0 &&
@@ -635,6 +675,9 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
     /// the cell clip would shave the ring's top band, and most of the first and last tab's side
     /// bands, which is the very thing the ring is drawn outset to show.
     @objc func accessoryClipPath(forTabBar bar: PSMTabBarControl) -> NSBezierPath? {
+        if usesPaletteButtons {
+            return NSBezierPath(rect: bar.bounds)
+        }
         // Take the axis from the bar rather than the cached one, the way every other query that is
         // handed a bar does, and pass it down instead of writing it back: only drawTabBar syncs the
         // cache, and this runs from layout, where -[iTermTabBarControlView setOrientation:] relays
@@ -709,6 +752,20 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
         
         if tabBar !== bar {
             tabBar = bar
+        }
+
+        if usesPaletteButtons {
+            NSColor.white.setFill()
+            rect.fill()
+            for cell in (bar.cells() as? [PSMTabBarCell]) ?? [] {
+                if !cell.isInOverflowMenu && !cell.isCollapsedHidden &&
+                    cell.frame.width > 0 && cell.frame.intersects(clipRect) {
+                    cell.draw(withFrame: cell.frame, in: bar)
+                }
+            }
+            // Keep group labels and their native hit targets available.
+            drawTabGroupRunDecorations(forTabBar: bar, clipRect: clipRect)
+            return
         }
         
         
@@ -1839,7 +1896,47 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
            let override = tabBar.delegate?.tabView?(tabBar, valueOfOption: PSMTabBarControlOptionKey.fontSizeOverride) as? NSNumber {
             return CGFloat(override.doubleValue)
         }
-        return 11.0
+        return usesPaletteButtons ? 17 : 11
+    }
+
+    // Same title, font weight, radius, border and middle truncation as the
+    // standalone palette. Selection and window focus never dim this style.
+    func paletteTitleAttributes(selected: Bool) -> [NSAttributedString.Key: Any] {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineBreakMode = .byTruncatingMiddle
+        return [.font: NSFont.systemFont(ofSize: fontSize, weight: .medium),
+                .foregroundColor: selected ? NSColor.white : NSColor.black,
+                .paragraphStyle: paragraph]
+    }
+
+    private func drawPaletteCell(_ cell: PSMTabBarCell) {
+        let selected = cell.state == .on
+        let box = NSBezierPath(roundedRect: backgroundRect(for: cell.frame), xRadius: 7, yRadius: 7)
+        (selected ? NSColor.black : NSColor.white).setFill()
+        box.fill()
+        NSColor.black.setStroke()
+        box.lineWidth = 2
+        box.stroke()
+        var titleRect = cell.frame.insetBy(dx: 8, dy: 7)
+        if cell.hasCloseButton && !cell.isPinned {
+            let closeRect = closeButtonRect(forTabCell: cell)
+            titleRect.origin.x = max(titleRect.minX, closeRect.maxX + 4)
+            titleRect.size.width = max(0, cell.frame.maxX - 8 - titleRect.minX)
+            if cell.closeButtonVisible {
+                let image = _closeButton?.it_cachingImage(withTintColor: selected ? .white : .black,
+                                                        key: selected ? PSMTabStyleLightColorKey : PSMTabStyleDarkColorKey)
+                image?.draw(in: closeRect)
+            }
+        }
+        let attributes = paletteTitleAttributes(selected: selected)
+        let textHeight = (cell.stringValue as NSString).size(withAttributes: attributes).height
+        titleRect.origin.y = cell.frame.midY - textHeight / 2
+        titleRect.size.height = textHeight
+        NSGraphicsContext.saveGraphicsState()
+        NSBezierPath(rect: cell.frame.insetBy(dx: 3, dy: 2)).addClip()
+        (cell.stringValue as NSString).draw(in: titleRect, withAttributes: attributes)
+        NSGraphicsContext.restoreGraphicsState()
     }
     
     private var subtitleFontSize: CGFloat {
@@ -2669,6 +2766,7 @@ class PSMTahoeDarkHighContrastTabStyle: PSMTahoeDarkTabStyle {
         }
     }
     override var fontSize: CGFloat {
+        if usesPaletteButtons { return super.fontSize }
         if let tabBar,
            let override = tabBar.delegate?.tabView?(tabBar, valueOfOption: PSMTabBarControlOptionKey.fontSizeOverride) as? NSNumber {
             return CGFloat(override.doubleValue)
@@ -2706,6 +2804,7 @@ class PSMTahoeLightHighContrastTabStyle: PSMTahoeTabStyle {
     }
     
     override var fontSize: CGFloat {
+        if usesPaletteButtons { return super.fontSize }
         if let tabBar,
            let override = tabBar.delegate?.tabView?(tabBar, valueOfOption: PSMTabBarControlOptionKey.fontSizeOverride) as? NSNumber {
             return CGFloat(override.doubleValue)

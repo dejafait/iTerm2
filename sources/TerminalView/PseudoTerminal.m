@@ -14422,6 +14422,14 @@ static BOOL iTermApproximatelyEqualRects(NSRect lhs, NSRect rhs, double epsilon)
 }
 
 - (CGFloat)_desiredTabBarHeight {
+    if (@available(macOS 26, *)) {
+        if ([iTermAdvancedSettingsModel paletteTabBarStyle] &&
+            [iTermAdvancedSettingsModel wrapBottomTabBar] &&
+            ![iTermAdvancedSettingsModel useSequoiaStyleTabs] &&
+            [iTermPreferences intForKey:kPreferenceKeyTabPosition] == PSMTab_BottomTab) {
+            return PSMTahoeTabStyle.paletteRowHeight;
+        }
+    }
     if ([self shouldHaveTallTabBar]) {
         return [iTermAdvancedSettingsModel compactMinimalTabBarHeight];
     }

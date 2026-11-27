@@ -91,6 +91,86 @@ final class PSMTabBarMinimumCellAreaTests: XCTestCase {
         XCTAssertEqual(control.wrappingColumnCount(forWidth: exactWidth), 6)
     }
 
+    func testPaletteSixColumnsUseButtonGeometryAndHitTargets() throws {
+        guard #available(macOS 26, *) else { throw XCTSkip("Tahoe style requires macOS 26") }
+        let previous = iTermAdvancedSettingsModel.paletteTabBarStyle()
+        let previousHeight = iTermAdvancedSettingsModel.defaultTabBarHeight()
+        defer {
+            iTermAdvancedSettingsModel.setPaletteTabBarStyle(previous)
+            iTermAdvancedSettingsModel.setDefaultTabBarHeight(previousHeight)
+        }
+        iTermAdvancedSettingsModel.setPaletteTabBarStyle(true)
+        iTermAdvancedSettingsModel.setDefaultTabBarHeight(36)
+        let style = PSMTahoeLightHighContrastTabStyle()
+        style.tabBar = control
+        control.style = style
+        control.wrapsTabs = true
+        control.wrappingPreferredColumnCount = 6
+        control.maximumWrappingRows = 10
+        control.height = PSMTahoeTabStyle.paletteRowHeight
+        control.frame.size.height = control.height * 3
+        addTabCells(14)
+        let widths = try XCTUnwrap(control.perform(Selector(("wrappingCellWidths")))?.takeUnretainedValue() as? NSArray)
+        _ = control.perform(Selector(("_setupCells:")), with: widths)
+        let cells = control.cells() as! [PSMTabBarCell]
+        XCTAssertEqual(control.wrappingRowCount(forWidth: barWidth), 3)
+        XCTAssertEqual(style.intercellSpacing, 6)
+        XCTAssertGreaterThanOrEqual(control.height, 42)
+        XCTAssertEqual(cells[0].frame.height, control.height - 6)
+        XCTAssertEqual(cells[1].frame.minX - cells[0].frame.maxX, 6, accuracy: 0.01)
+        XCTAssertEqual(cells[6].frame.minY - cells[0].frame.maxY, 6, accuracy: 0.01)
+        for cell in cells {
+            let center = NSPoint(x: cell.frame.midX, y: cell.frame.midY)
+            XCTAssertTrue((control.cell(for: center, cellFrame: nil) as? PSMTabBarCell) === cell)
+        }
+        iTermAdvancedSettingsModel.setPaletteTabBarStyle(false)
+        XCTAssertFalse(style.usesPaletteButtons)
+        XCTAssertEqual(style.intercellSpacing, 2)
+    }
+
+    func testPaletteDrawingKeepsBlackWhiteContrastWithoutAKeyWindow() throws {
+        guard #available(macOS 26, *) else { throw XCTSkip("Tahoe style requires macOS 26") }
+        let previous = iTermAdvancedSettingsModel.paletteTabBarStyle()
+        defer { iTermAdvancedSettingsModel.setPaletteTabBarStyle(previous) }
+        iTermAdvancedSettingsModel.setPaletteTabBarStyle(true)
+        let style = PSMTahoeLightHighContrastTabStyle()
+        style.tabBar = control
+        control.style = style
+        control.wrapsTabs = true
+        let cell = PSMTabBarCell(controlView: control)!
+        cell.frame = NSRect(x: 6, y: 3, width: 130, height: 36)
+        cell.stringValue = "Test ⚪⚫"
+        cell.hasCloseButton = false
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 150, pixelsHigh: 42,
+                                                  bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                                  isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let context = try XCTUnwrap(NSGraphicsContext(bitmapImageRep: bitmap))
+        NSGraphicsContext.saveGraphicsState()
+        defer { NSGraphicsContext.restoreGraphicsState() }
+        NSGraphicsContext.current = context
+        for selected in [false, true] {
+            cell.state = selected ? .on : .off
+            NSColor.white.setFill()
+            NSRect(x: 0, y: 0, width: 150, height: 42).fill()
+            style.drawTabCell(cell, highlightAmount: 0)
+            context.flushGraphics()
+            // Sample away from text, border and rounded corners.
+            let fill = try XCTUnwrap(bitmap.colorAt(x: 12, y: 21)?.usingColorSpace(.deviceRGB))
+            XCTAssertEqual(fill.redComponent, selected ? 0 : 1, accuracy: 0.01)
+            XCTAssertEqual(fill.greenComponent, selected ? 0 : 1, accuracy: 0.01)
+            XCTAssertEqual(fill.blueComponent, selected ? 0 : 1, accuracy: 0.01)
+            let border = try XCTUnwrap(bitmap.colorAt(x: 7, y: 21)?.usingColorSpace(.deviceRGB))
+            XCTAssertEqual(border.redComponent, 0, accuracy: 0.01)
+            let attributes = style.paletteTitleAttributes(selected: selected)
+            XCTAssertEqual(attributes[.foregroundColor] as? NSColor, selected ? .white : .black)
+        }
+        control.wrapsTabs = false
+        XCTAssertFalse(style.usesPaletteButtons, "The option must not restyle top or side bars")
+        control.wrapsTabs = true
+        style.orientation = .verticalOrientation
+        XCTAssertFalse(style.usesPaletteButtons)
+    }
+
     func testWrappedTahoeClipIncludesSecondRow() throws {
         guard #available(macOS 26, *) else { throw XCTSkip("Tahoe style requires macOS 26") }
         let style = PSMTahoeTabStyle()
