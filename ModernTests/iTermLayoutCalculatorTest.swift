@@ -13,6 +13,49 @@ import XCTest
 
 final class iTermLayoutCalculatorTest: XCTestCase {
 
+    func testTopPrimaryHasBottomMirrorWithStatusAndAccessory() {
+        for accessory in [false, true] {
+            for statusOnTop in [false, true] {
+                var inputs = makeDefaultInputs()
+                inputs.tabPosition = kLayoutTabPositionTop
+                inputs.mirroredTabBarHeight = 56
+                inputs.tabBarOnLoan = ObjCBool(accessory)
+                inputs.hasStatusBar = true
+                inputs.statusBarOnTop = ObjCBool(statusOnTop)
+                let result = iTermLayoutCalculator.calculateLayout(with: inputs)
+                XCTAssertEqual(result.mirroredTabBarFrame.height, 56)
+                XCTAssertLessThanOrEqual(result.mirroredTabBarFrame.maxY, result.tabViewFrame.minY)
+                XCTAssertFalse(result.statusBarFrame.intersects(result.mirroredTabBarFrame))
+            }
+        }
+    }
+
+    func testVerticalMirrorsReserveOppositeSideWithoutCoveringTerminal() {
+        for position in [kLayoutTabPositionLeft, kLayoutTabPositionRight] {
+            for statusOnTop in [false, true] {
+                var inputs = makeDefaultInputs()
+                inputs.tabPosition = position
+                inputs.mirroredTabBarWidth = 120
+                inputs.hasStatusBar = true
+                inputs.statusBarOnTop = ObjCBool(statusOnTop)
+                inputs.shouldShowToolbelt = true
+                let result = iTermLayoutCalculator.calculateLayout(with: inputs)
+                XCTAssertEqual(result.mirroredTabBarFrame.width, 120)
+                XCTAssertFalse(result.tabViewFrame.intersects(result.mirroredTabBarFrame))
+                XCTAssertFalse(result.statusBarFrame.intersects(result.mirroredTabBarFrame))
+                XCTAssertFalse(result.toolbeltFrame.intersects(result.mirroredTabBarFrame))
+                XCTAssertFalse(result.tabBarFrame.intersects(result.mirroredTabBarFrame))
+                if position == kLayoutTabPositionLeft {
+                    XCTAssertGreaterThanOrEqual(result.mirroredTabBarFrame.minX, result.tabViewFrame.maxX)
+                } else {
+                    XCTAssertLessThanOrEqual(result.mirroredTabBarFrame.maxX, result.tabViewFrame.minX)
+                }
+                inputs.tabBarVisible = false
+                XCTAssertEqual(iTermLayoutCalculator.calculateLayout(with: inputs).mirroredTabBarFrame, .zero)
+            }
+        }
+    }
+
     func testMirroredBottomBarReservesTopSpaceBeforeStatusBar() {
         for fullscreen in [false, true] {
             for statusOnTop in [false, true] {
@@ -40,7 +83,7 @@ final class iTermLayoutCalculatorTest: XCTestCase {
     func testMirroredBarDoesNotReserveSpaceWhenHiddenFlashingOrVertical() {
         var inputs = makeDefaultInputs()
         inputs.mirroredTabBarHeight = 56
-        for position in [kLayoutTabPositionTop, kLayoutTabPositionLeft, kLayoutTabPositionRight] {
+        for position in [kLayoutTabPositionLeft, kLayoutTabPositionRight] {
             inputs.tabPosition = position
             XCTAssertEqual(iTermLayoutCalculator.calculateLayout(with: inputs).mirroredTabBarFrame, .zero)
         }
