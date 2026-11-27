@@ -123,6 +123,7 @@ static NSString *const iTermPreferencePanelSearchFieldToolbarItemIdentifier = @"
 static NSString *const iTermPrefsScrimMouseUpNotification = @"iTermPrefsScrimMouseUpNotification";
 
 CGFloat iTermPreferencePanelGetWindowMinimumWidth(BOOL session) {
+    if ([iTermAdvancedSettingsModel portraitSettingsLayout]) { return session ? 560 : 640; }
     if (session) {
         return 560;
     }
@@ -516,6 +517,7 @@ static PreferencePanel *gSessionsPreferencePanel;
 static iTermPreferencesSearchEngine *gSearchEngine;
 
 @implementation PreferencePanel {
+    iTermPortraitSettingsCoordinator *_portraitSettingsCoordinator;
     ProfileModel *_profileModel;
     BOOL _editCurrentSessionMode;
     IBOutlet GeneralPreferencesViewController *_generalPreferencesViewController;
@@ -976,6 +978,16 @@ andEditComponentWithIdentifier:(NSString *)identifier
     } else {
         [self.window setFrameUsingName:self.nameForFrame force:NO];
     }
+    if ([iTermAdvancedSettingsModel portraitSettingsLayout]) {
+        [_profilesViewController layoutForPortraitWindow];
+        _portraitSettingsCoordinator = [[iTermPortraitSettingsCoordinator alloc] initWithWindow:self.window tabView:_tabView];
+        __weak __typeof(self) weakSelf = self;
+        _portraitSettingsCoordinator.layoutHandler = ^{
+            __typeof(self) strongSelf = weakSelf;
+            if (strongSelf) { [strongSelf->_profilesViewController layoutForPortraitWindow]; }
+        };
+        [_portraitSettingsCoordinator update];
+    }
 }
 
 #pragma mark - NSWindowDelegate
@@ -1385,7 +1397,7 @@ andEditComponentWithIdentifier:(NSString *)identifier
         return;
     }
 
-    iTermSizeRememberingView *theView = (iTermSizeRememberingView *)tabViewItem.view;
+    iTermSizeRememberingView *theView = (iTermSizeRememberingView *)[iTermPortraitSettingsCoordinator originalView:tabViewItem.view];
     [theView resetToOriginalSize];
     NSRect rect = self.window.frame;
     NSPoint topLeft = rect.origin;
@@ -1397,6 +1409,7 @@ andEditComponentWithIdentifier:(NSString *)identifier
     rect.origin = topLeft;
     rect.origin.y -= rect.size.height;
     rect.size.width = MAX([self preferencePanelMinimumWidth], rect.size.width);
+    rect = [iTermPortraitSettingsCoordinator adjustedFrame:rect window:self.window];
     [[self window] setFrame:rect display:YES animate:animated];
 }
 

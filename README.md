@@ -152,6 +152,20 @@ The third feature adds an optional second native navigation bar on the opposite 
 - Both bars select and close the same tabs and follow titles, status and selection. Each reserves its own space. The mirrored bar is navigation-only for dragging: reorder on the primary bar.
 - Hidden/flashing bars do not reserve a second strip; very small windows clamp the secondary strip to keep terminal content space.
 
+## Portrait-friendly Settings
+
+The fourth feature makes Settings resizable and readable on narrow portrait displays without scaling down text. Enable **Settings → Advanced → Use a resizable portrait-friendly Settings window**, then close and reopen Settings (the application and terminal sessions keep running). Disabled by default.
+
+![Native Settings content at 800 points](docs/screenshots/portrait-settings-800.png)
+
+Offscreen capture of the real Settings controls at 800 points, using the test app’s default profile. No personal terminal contents are included.
+
+- At widths up to 900 points, controls flow into vertical rows, long labels wrap, and content scrolls vertically. The window supports an 800-point width and can be resized down to 640 points.
+- The profile list and its actions move above the profile settings instead of consuming a permanent left column. The toolbar uses icons in narrow mode and returns to its previous presentation when widened.
+- The original controls, values, actions and bindings are retained. Widening restores the desktop form geometry. Switching sections preserves the user’s narrow window width instead of forcing a wider window.
+- Oversized custom Settings sheets, including smart-selection and trigger editors, become resizable vertical forms. Native macOS file pickers are left to the system.
+- This changes Settings, not terminal text, running jobs or profile contents. On narrow screens the initial window is constrained to the available screen area.
+
 ## What comes next
 
 More accessibility improvements are planned, with particular attention to portrait layouts and readable, high-contrast interfaces on monochrome displays.

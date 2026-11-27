@@ -37,6 +37,7 @@ extern NSString *const kProfileSessionHotkeyDidChange;
 @property(nonatomic, readonly) NSSize size;
 
 - (void)layoutSubviewsForEditCurrentSessionMode;
+- (void)layoutForPortraitWindow;
 
 - (Profile *)selectedProfile;
 
