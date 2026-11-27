@@ -13,6 +13,10 @@ There is currently **one custom native feature**: a bottom tab bar that wraps on
 - The bar is limited to 40% of the window height; additional tabs remain accessible through the overflow menu.
 - The feature is disabled by default.
 
+![Native tabs wrapping into three rows](docs/screenshots/multirow-three-rows.png)
+
+Native renderer fixture with sample titles; no personal terminal contents.
+
 ### Enable it
 
 1. Open **Settings → Appearance → General** and set **Tab bar location** to **Bottom**.
@@ -42,7 +46,7 @@ For the original project's build instructions and general documentation, see:
 
 ## Project structure
 
-Feature PRs are stacked: `main` → `feature/multirow-tab-bar` → `feature/palette-tab-style` → `feature/top-and-bottom-tab-bars`. Each README describes the features available at that point. `release` tracks the top of the stack and is the default branch. `main` preserves the official baseline; there is no personal integration branch.
+`main` preserves the official baseline. Each feature PR targets the preceding feature branch and stays open for public review. `release` contains all features at the top of the stack and is the default branch. There is no personal integration branch.
 
 ## Credits and license
 
