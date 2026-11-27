@@ -139,6 +139,15 @@ Appearance can be edited without rebuilding or restarting. Create `tab-style.jso
 - Native activity, counter, status, graphic, pin and close decorations support enabled and left/right placement. Progress supports enabled and left/right/outline placement. The title’s own emoji remain part of the title; no emoji are synthesized by this renderer.
 - Native profile settings still control terminal text fonts/colors. This file controls tab labels. Small heights intentionally clip oversized text; choose height appropriate to the selected font.
 
+## Synchronized bars on opposite sides
+
+The third feature adds an optional second native navigation bar on the opposite edge. Open **Settings → Advanced**, search **Show tab bars on opposite sides**, and enable it. It is disabled by default and can be toggled without restarting. The stored key remains `ShowTopAndBottomTabBars` for compatibility.
+
+- Top or Bottom in **Appearance → General → Tab bar location** gives top + bottom.
+- Left or Right gives left + right. Mixed horizontal/vertical pairs are not offered.
+- Both bars select and close the same tabs and follow titles, status and selection. Each reserves its own space. The mirrored bar is navigation-only for dragging: reorder on the primary bar.
+- Hidden/flashing bars do not reserve a second strip; very small windows clamp the secondary strip to keep terminal content space.
+
 ## What comes next
 
 More accessibility improvements are planned, with particular attention to portrait layouts and readable, high-contrast interfaces on monochrome displays.

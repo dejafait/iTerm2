@@ -1870,18 +1870,23 @@ static NSColor *iTermWindowBorderColorFromSetting(NSString *setting) {
 #pragma mark - Layout Calculator Integration
 
 - (BOOL)wantsMirroredTabBar {
-    return [iTermAdvancedSettingsModel showTopAndBottomTabBars] &&
-        [iTermPreferences intForKey:kPreferenceKeyTabPosition] == PSMTab_BottomTab &&
-        !_tabBarControlOnLoan;
+    return [iTermAdvancedSettingsModel showTopAndBottomTabBars];
 }
 
 - (CGFloat)mirroredTabBarHeight {
-    if (![self wantsMirroredTabBar] || !self.tabBarShouldBeVisible || self.tabBarControl.flashing) {
+    if (![self wantsMirroredTabBar] || !self.tabBarShouldBeVisible || self.tabBarControl.flashing ||
+        [iTermPreferences intForKey:kPreferenceKeyTabPosition] >= PSMTab_LeftTab) {
         return 0;
     }
     const NSUInteger rows = self.tabBarControl.wrapsTabs
         ? [self.tabBarControl wrappingRowCountForWidth:NSWidth(self.bounds)] : 1;
     return self.tabBarControl.height * rows;
+}
+
+- (CGFloat)mirroredTabBarWidth {
+    if (![self wantsMirroredTabBar] || !self.tabBarShouldBeVisible || self.tabBarControl.flashing ||
+        [iTermPreferences intForKey:kPreferenceKeyTabPosition] < PSMTab_LeftTab) { return 0; }
+    return MIN(_leftTabBarWidth, MAX(0, NSWidth(self.bounds) - _leftTabBarWidth - 80));
 }
 
 - (void)configureMirroredTabBar {
@@ -1909,8 +1914,11 @@ static NSColor *iTermWindowBorderColorFromSetting(NSString *setting) {
         mirror.style = [[(NSObject *)primary.style class] new];
     }
     mirror.style.tabBar = mirror;
-    mirror.orientation = PSMTabBarHorizontalOrientation;
-    mirror.tabLocation = PSMTab_TopTab;
+    mirror.orientation = primary.orientation;
+    const int position = [iTermPreferences intForKey:kPreferenceKeyTabPosition];
+    mirror.tabLocation = position == PSMTab_TopTab ? PSMTab_BottomTab :
+        position == PSMTab_BottomTab ? PSMTab_TopTab :
+        position == PSMTab_LeftTab ? PSMTab_RightTab : PSMTab_LeftTab;
     mirror.insets = primary.insets;
     mirror.height = primary.height;
     mirror.disableTabClose = primary.disableTabClose;
@@ -1954,6 +1962,7 @@ static NSColor *iTermWindowBorderColorFromSetting(NSString *setting) {
     }
     inputs.leftTabBarWidth = _leftTabBarWidth;
     inputs.mirroredTabBarHeight = self.mirroredTabBarHeight;
+    inputs.mirroredTabBarWidth = self.mirroredTabBarWidth;
 
     // Toolbelt
     inputs.toolbeltWidth = floor(self.toolbeltWidth);
@@ -2603,6 +2612,14 @@ static NSColor *iTermWindowBorderColorFromSetting(NSString *setting) {
 /// This is the new path that uses the calculator outputs directly.
 - (void)layoutStatusBarWithOutputs:(iTermLayoutOutputs)outputs
                             window:(NSWindow *)thisWindow {
+    if (_mirroredTabBarControl) {
+        _mirroredTabBarControl.hidden = CGRectIsEmpty(outputs.mirroredTabBarFrame);
+        if (!_mirroredTabBarControl.hidden) {
+            _mirroredTabBarControl.frame = outputs.mirroredTabBarFrame;
+            [self.tabBarControl synchronizeMirroredTabBar];
+        }
+    }
+
     iTermStatusBarViewController *statusBarViewController = [_delegate rootTerminalViewSharedStatusBarViewController];
     NSRect statusBarFrame = outputs.statusBarFrame;
 
