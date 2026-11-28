@@ -2041,7 +2041,7 @@ static NSString *iTermStringForEventPhase(NSEventPhase eventPhase) {
     helper.cellSizeWithoutSpacing = NSMakeSize(_charWidthWithoutSpacing, _charHeightWithoutSpacing);
     helper.ambiguousIsDoubleWidth = [_delegate textViewAmbiguousWidthCharsAreDoubleWidth];
     helper.normalization = [_delegate textViewUnicodeNormalizationForm];
-    helper.hasBackgroundImage = [_delegate textViewHasBackgroundImage];
+    helper.hasBackgroundImage = !_colorMap.monochromeTerminal && [_delegate textViewHasBackgroundImage];
     helper.gridSize = VT100GridSizeMake(_dataSource.width, _dataSource.height);
     helper.numberOfLines = _dataSource.numberOfLines;
     helper.totalScrollbackOverflow = [_dataSource totalScrollbackOverflow];
@@ -2779,6 +2779,9 @@ static NSString *iTermStringForEventPhase(NSEventPhase eventPhase) {
 }
 
 - (double)transparencyAlpha {
+    if (_colorMap.monochromeTerminal) {
+        return 1;
+    }
     if (self.window.isKeyWindow && [iTermPreferences boolForKey:kPreferenceKeyDisableTransparencyForKeyWindow]) {
         return 1;
     }

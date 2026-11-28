@@ -796,6 +796,9 @@ static CGFloat iTermTextDrawingHelperAlphaValueForDefaultBackgroundColor(BOOL ha
 
 - (NSColor *)unprocessedColorForBackgroundRun:(const iTermBackgroundColorRun *)run
                                enableBlending:(BOOL)enableBlending {
+    if (_colorMap.monochromeTerminal) {
+        return [_colorMap monochromeColorForForeground:NO highlighted:run->selected || run->isMatch];
+    }
     NSColor *color;
     CGFloat alpha = _transparencyAlpha;
     if (run->selected) {
@@ -2423,6 +2426,9 @@ NSArray<iTermBoxedBackgroundColorRun *> *iTermCombineBackgroundRunsForUnprocesse
 }
 
 - (NSColor *)underlineColorForAttributes:(NSDictionary *)attributes {
+    if (_colorMap.monochromeTerminal) {
+        return attributes[NSForegroundColorAttributeName] ?: [_colorMap colorForKey:kColorMapForeground];
+    }
     // First, use value in attribute if it is present.
     const BOOL hasUnderlineColor = [attributes[iTermHasUnderlineColorAttribute] boolValue];
     if (hasUnderlineColor) {
@@ -4072,7 +4078,7 @@ typedef struct {
 }
 
 - (NSColor *)blockCursorFillColorRespectingSmartSelection {
-    if (_useSmartCursorColor) {
+    if (_useSmartCursorColor && !_colorMap.monochromeTerminal) {
         const screen_char_t *theLine;
         const int absoluteLine = _cursorCoord.y + _numberOfScrollbackLines;
         if (_cursorCoord.y >= 0) {
@@ -4160,7 +4166,7 @@ typedef struct {
         // the display tonemaps whatever we draw down to what it can show.
         const CGFloat headroom = _delegate.enclosingScrollView.window.screen.maximumPotentialExtendedDynamicRangeColorComponentValue;
         if ([iTermCursor shouldUseHDRCursorOnBackground:[self defaultBackgroundColor]
-                                         profileEnabled:self.hdrCursorEnabled
+                                         profileEnabled:self.hdrCursorEnabled && !_colorMap.monochromeTerminal
                                       potentialHeadroom:headroom]) {
             cursorColor = [NSColor it_colorInDefaultColorSpaceWithRed:1 green:1 blue:1 alpha:1];
             hdrComponentValue = [iTermCursor hdrCursorComponentValueForRequestedBrightness:self.hdrCursorBrightness
@@ -4200,7 +4206,7 @@ typedef struct {
                                                          faint:NO
                                                   isBackground:NO];
     }
-    if (hdrCursor && _useSmartCursorColor) {
+    if (hdrCursor && _useSmartCursorColor && !_colorMap.monochromeTerminal) {
         // Smart cursor color is suppressed for the HDR cursor (see below), but the
         // user still asked for legible contrast, and black is the best contrast
         // against a full-white block. The Metal path does the same.
@@ -4217,7 +4223,7 @@ typedef struct {
               screenChar:cursorInfo.screenChar
          backgroundColor:cursorColor
          foregroundColor:cursorTextColor
-                   smart:(_useSmartCursorColor && !hdrCursor)
+                   smart:(_useSmartCursorColor && !hdrCursor && !_colorMap.monochromeTerminal)
                  focused:[self isFocused]
                    coord:cursorCoord
                  outline:outline

@@ -141,6 +141,7 @@ const int kColorMapAnsiBrightModifier = 8;
 
     NSColor *theColor = [colorInArbitrarySpace colorUsingColorSpace:[NSColorSpace it_defaultColorSpace]];
     NSColor *oldColor = _map[@(theKey)];
+    NSColor *oldVisibleColor = _monochromeTerminal ? [self colorForKey:theKey] : oldColor;
     {
         if (theColor == oldColor || [theColor isEqual:oldColor]) {
             DLog(@"Color with key %@ unchanged (%@)", @(theKey), oldColor);
@@ -164,10 +165,53 @@ const int kColorMapAnsiBrightModifier = 8;
         (float)components[3]
    };
     _fastMap[@(theKey)] = [NSData dataWithBytes:&value length:sizeof(value)];
-    [self.delegate colorMap:self didChangeColorForKey:theKey from:oldColor to:theColor];
+    [self.delegate colorMap:self didChangeColorForKey:theKey from:oldVisibleColor to:[self colorForKey:theKey]];
+}
+
+- (void)setMonochromeTerminal:(NSInteger)mode {
+    mode = (mode == 1 || mode == 2) ? mode : 0;
+    if (_monochromeTerminal == mode) {
+        return;
+    }
+    NSArray<NSNumber *> *keys = @[@(kColorMapBackground), @(kColorMapForeground),
+                                  @(kColorMapCursor), @(kColorMapSelection)];
+    NSMutableArray *before = [NSMutableArray arrayWithCapacity:keys.count];
+    for (NSNumber *key in keys) {
+        [before addObject:[self colorForKey:key.intValue] ?: [NSNull null]];
+    }
+    _monochromeTerminal = mode;
+    _generation++;
+    _colorVectorCache = nil;
+    _lastTextColor = nil;
+    _lastBackgroundColor = nil;
+    DLog(@"Terminal monochrome mode changed to %@", @(mode));
+    [keys enumerateObjectsUsingBlock:^(NSNumber *key, NSUInteger index, BOOL *stop) {
+        NSColor *previous = before[index] == [NSNull null] ? nil : before[index];
+        [self.delegate colorMap:self didChangeColorForKey:key.intValue
+                          from:previous to:[self colorForKey:key.intValue]];
+    }];
+}
+
+- (NSColor *)monochromeColorForForeground:(BOOL)foreground highlighted:(BOOL)highlighted {
+    const BOOL white = (foreground != highlighted) == (_monochromeTerminal == 2);
+    static NSColor *blackColor;
+    static NSColor *whiteColor;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        blackColor = [NSColor colorWithSRGBRed:0 green:0 blue:0 alpha:1];
+        whiteColor = [NSColor colorWithSRGBRed:1 green:1 blue:1 alpha:1];
+    });
+    return white ? whiteColor : blackColor;
 }
 
 - (NSColor *)colorForKey:(iTermColorMapKey)theKey {
+    if (_monochromeTerminal && theKey < kColorMap8bitBase) {
+        const BOOL background = theKey == kColorMapBackground || theKey == kColorMapCursorText || theKey == kColorMapSelectedText;
+        return [self monochromeColorForForeground:!background highlighted:NO];
+    }
+    if (_monochromeTerminal && (theKey == kColorMapMatch || theKey == kColorMapIMECursor)) {
+        return [self monochromeColorForForeground:YES highlighted:NO];
+    }
     if (theKey == kColorMapInvalid) {
         return [NSColor redColor];
     } else if (theKey >= kColorMap24bitBase && theKey < kExtendedColorsBase) {
@@ -182,6 +226,10 @@ const int kColorMapAnsiBrightModifier = 8;
 }
 
 - (vector_float4)fastColorForKey:(iTermColorMapKey)theKey {
+    if (_monochromeTerminal && (theKey < kColorMap8bitBase || theKey == kColorMapMatch || theKey == kColorMapIMECursor)) {
+        NSColor *color = [self colorForKey:theKey];
+        return simd_make_float4(color.redComponent, color.greenComponent, color.blueComponent, 1);
+    }
     if (theKey == kColorMapInvalid) {
         return simd_make_float4(1, 0, 0, 1);
     } else if (theKey >= kColorMap24bitBase && theKey < kExtendedColorsBase) {
@@ -324,6 +372,11 @@ const int kColorMapAnsiBrightModifier = 8;
     if (!textColor) {
         return nil;
     }
+    if (_monochromeTerminal) {
+        NSColor *bg = [backgroundColor colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+        const BOOL highlighted = bg && ((bg.redComponent < 0.5) == (_monochromeTerminal == 1));
+        return [self monochromeColorForForeground:YES highlighted:highlighted];
+    }
     // Fist apply minimum contrast, then muting, then dimming (as needed).
     CGFloat textRgb[4];
     [textColor getComponents:textRgb];
@@ -381,6 +434,9 @@ const int kColorMapAnsiBrightModifier = 8;
 // default background color. It doesn't make sense to combine RGB values from different color
 // spaces. The effects are generally subtle.
 - (NSColor *)colorByMutingColor:(NSColor *)color {
+    if (_monochromeTerminal) {
+        return color;
+    }
     if (_mutingAmount < 0.01) {
         return color;
     }
@@ -401,6 +457,9 @@ const int kColorMapAnsiBrightModifier = 8;
 }
 
 - (vector_float4)fastColorByMutingColor:(vector_float4)color {
+    if (_monochromeTerminal) {
+        return color;
+    }
     if (_mutingAmount < 0.01) {
         return color;
     }
@@ -449,6 +508,9 @@ const int kColorMapAnsiBrightModifier = 8;
 // default background color. It doesn't make sense to combine RGB values from different color
 // spaces. The effects are generally subtle.
 - (NSColor *)colorByDimmingTextColor:(NSColor *)color {
+    if (_monochromeTerminal) {
+        return color;
+    }
     if (_dimmingAmount < 0.01) {
         return color;
     }
@@ -463,6 +525,10 @@ const int kColorMapAnsiBrightModifier = 8;
 }
 
 - (vector_float4)fastProcessedBackgroundColorForBackgroundColor:(vector_float4)backgroundColor {
+    if (_monochromeTerminal) {
+        const float value = backgroundColor.x < 0.5 ? 0 : 1;
+        return simd_make_float4(value, value, value, 1);
+    }
     vector_float4 defaultBackgroundComponents = [self fastColorForKey:kColorMapBackground];
     const vector_float4 mutedRgb = [self fastAverageComponents:backgroundColor with:defaultBackgroundComponents alpha:_mutingAmount];
     vector_float4 grayRgb = { 0.5, 0.5, 0.5, 1 };
@@ -503,6 +569,11 @@ const int kColorMapAnsiBrightModifier = 8;
 - (NSColor *)processedBackgroundColorForBackgroundColor:(NSColor *)backgroundColor {
     if (!backgroundColor) {
         return nil;
+    }
+    if (_monochromeTerminal) {
+        NSColor *bg = [backgroundColor colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+        const BOOL highlighted = bg && ((bg.redComponent < 0.5) == (_monochromeTerminal == 1));
+        return [self monochromeColorForForeground:NO highlighted:highlighted];
     }
     // Normalize so the fixed-size buffer below is valid for any input (gray,
     // CMYK, system colors, etc.). Stored map colors are already in this space,
@@ -552,7 +623,7 @@ const int kColorMapAnsiBrightModifier = 8;
     }
     dimmedRgb[3] = backgroundRgb[3];
 
-    if (!memcmp(_lastBackgroundComponents, dimmedRgb, sizeof(CGFloat) * 4)) {
+    if (_lastBackgroundColor && !memcmp(_lastBackgroundComponents, dimmedRgb, sizeof(CGFloat) * 4)) {
         return _lastBackgroundColor;
     } else {
         memmove(_lastBackgroundComponents, dimmedRgb, sizeof(CGFloat) * 4);
@@ -620,6 +691,9 @@ const int kColorMapAnsiBrightModifier = 8;
 }
 
 - (BOOL)backgroundIsDark {
+    if (_monochromeTerminal) {
+        return _monochromeTerminal == 2;
+    }
     return _backgroundBrightness < 0.5;
 }
 
@@ -666,7 +740,7 @@ const int kColorMapAnsiBrightModifier = 8;
                           useCustomBoldColor:useCustomBoldColor
                                 brightenBold:brightenBold];
     NSColor *color  = [self colorForKey:key];
-    if (!isBackground && isFaint) {
+    if (!isBackground && isFaint && !_monochromeTerminal) {
         color = [color colorWithAlphaComponent:0.5];
     }
     return color;
@@ -706,6 +780,7 @@ const int kColorMapAnsiBrightModifier = 8;
     other->_darkMode = _darkMode;
     other->_faintTextAlpha = _faintTextAlpha;
     other->_harmonize = _harmonize;
+    other->_monochromeTerminal = _monochromeTerminal;
     other->_generation = _generation;
 
     return other;
@@ -729,6 +804,12 @@ const int kColorMapAnsiBrightModifier = 8;
                    isBackground:(BOOL)isBackground
              useCustomBoldColor:(BOOL)useCustomBoldColor
                    brightenBold:(BOOL)brightenBold {
+    if (_monochromeTerminal) {
+        if (mode == ColorModeAlternate && (color == ALTSEM_SELECTED || color == ALTSEM_CURSOR)) {
+            return isBackground ? kColorMapSelection : kColorMapSelectedText;
+        }
+        return isBackground ? kColorMapBackground : kColorMapForeground;
+    }
     BOOL isBackgroundForDefault = isBackground;
     switch (mode) {
         case ColorModeAlternate:
@@ -792,6 +873,11 @@ const int kColorMapAnsiBrightModifier = 8;
 }
 
 - (VT100SavedColorsSlot *)savedColorsSlot {
+    if (_monochromeTerminal) {
+        iTermColorMap *unfiltered = [self copy];
+        unfiltered->_monochromeTerminal = 0;
+        return [unfiltered savedColorsSlot];
+    }
     DLog(@"begin");
     return [[VT100SavedColorsSlot alloc] initWithTextColor:[self colorForKey:kColorMapForeground]
                                             backgroundColor:[self colorForKey:kColorMapBackground]
@@ -850,6 +936,7 @@ const int kColorMapAnsiBrightModifier = 8;
 @dynamic darkMode;
 @dynamic generation;
 @dynamic harmonize;
+@dynamic monochromeTerminal;
 @dynamic backgroundIsDark;
 
 - (instancetype)initWithSource:(iTermColorMap *)source {

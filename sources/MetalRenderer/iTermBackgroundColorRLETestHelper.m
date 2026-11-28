@@ -36,6 +36,8 @@
 
 - (BOOL)darkBackground { return NO; }
 - (BOOL)backgroundIsDark { return NO; }
+- (NSInteger)monochromeTerminal { return 0; }
+- (NSColor *)monochromeColorForForeground:(BOOL)foreground highlighted:(BOOL)highlighted { return nil; }
 - (CGFloat)minimumContrast { return 0; }
 - (CGFloat)dimmingAmount { return 0; }
 - (CGFloat)mutingAmount { return 0; }
