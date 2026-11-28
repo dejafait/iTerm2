@@ -1223,11 +1223,10 @@ typedef NS_ENUM(NSUInteger, PTYSessionTurdType) {
                                                  selector:@selector(metalClipViewWillScroll:)
                                                      name:iTermMetalClipViewWillScroll
                                                    object:nil];
-        // Clear a stale AI tab title promptly when the user disables the feature,
-        // instead of waiting for a display tick that a quiescent/occluded session may
-        // not get soon.
+        // Apply live terminal accessibility settings and AI title changes even in
+        // quiescent or occluded sessions that may not receive a display tick soon.
         [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(aiGeneratedTabTitlesSettingDidChange)
+                                                 selector:@selector(terminalAccessibilitySettingsDidChange)
                                                      name:iTermAdvancedSettingsDidChange
                                                    object:nil];
         [[NSNotificationCenter defaultCenter] addObserver:self
@@ -8882,6 +8881,12 @@ static NSString *const PTYSessionComposerPrefixUserDataKeyDetectedByTrigger = @"
         DLog(@"self.newOutput = NO");
         self.newOutput = NO;
     }
+}
+
+- (void)terminalAccessibilitySettingsDidChange {
+    [self aiGeneratedTabTitlesSettingDidChange];
+    [self sync];
+    [_textview requestDelegateRedraw];
 }
 
 - (void)refreshTerminal:(NSNotification *)notification {
@@ -20375,6 +20380,11 @@ static NSString *PTYSessionDECRQCRANoLabel(void) {
 
 - (void)updateConfigurationFields {
     BOOL dirty = NO;
+    const NSInteger monochrome = [iTermAdvancedSettingsModel monochromeTerminal];
+    if (_config.monochromeTerminal != monochrome) {
+        _config.monochromeTerminal = monochrome;
+        dirty = YES;
+    }
     if (![NSObject object:_config.sessionGuid isEqualToObject:_guid]) {
         _config.sessionGuid = _guid;
         dirty = YES;

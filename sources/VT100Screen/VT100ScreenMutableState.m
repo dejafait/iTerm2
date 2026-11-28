@@ -621,6 +621,7 @@ static BOOL sOSC7DisabledWarningShown;
             @"useSeparateColorsForLightAndDarkMode",
             @"minimumContrast",
             @"faintTextAlpha",
+            @"monochromeTerminal",
             @"mutingAmount",
             @"dimmingAmount"
         ]];
@@ -636,7 +637,12 @@ static BOOL sOSC7DisabledWarningShown;
             colorMap.mutingAmount = config.mutingAmount;
             colorMap.dimmingAmount = config.dimmingAmount;
             colorMap.faintTextAlpha = config.faintTextAlpha;
+            colorMap.monochromeTerminal = config.monochromeTerminal;
         }];
+    }
+    if ([dirty containsObject:@"monochromeTerminal"]) {
+        [self.currentGrid setAllDirty:YES];
+        [self setNeedsRedraw];
     }
     if (config.maxScrollbackLines != self.maxScrollbackLines) {
         self.maxScrollbackLines = config.maxScrollbackLines;

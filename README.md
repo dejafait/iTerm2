@@ -166,11 +166,27 @@ Offscreen capture of the real Settings controls at 800 points, using the test ap
 - Oversized custom Settings sheets, including smart-selection and trigger editors, become resizable vertical forms. Native macOS file pickers are left to the system.
 - This changes Settings, not terminal text, running jobs or profile contents. On narrow screens the initial window is constrained to the available screen area.
 
+## Live monochrome terminal rendering
+
+The fifth feature overrides terminal text colors at rendering time, including ANSI 16/256-color, RGB, dual-mode and faint text. Unlike a theme, programs cannot bypass it by choosing gray text or their own backgrounds. It does not recolor tab bars or window controls.
+
+Open **Settings → Advanced**, search **Monochrome terminal rendering**, and set:
+
+- **0** — original profile colors (default).
+- **1** — black text on an opaque white background.
+- **2** — white text on an opaque black background.
+
+Changes apply immediately to existing sessions and scrollback, without restarting the app or its jobs. Selection, search results and the cursor use inverted black/white contrast. Fonts, bold and italic remain unchanged. Dimming, faint alpha, background images and transparency cannot wash out terminal text while this mode is active. Turning it off restores the stored profile/application colors; it does not overwrite the palette or terminal cells. Inline images and color-font emoji keep their intrinsic artwork; this is a text-color mode, not a whole-window grayscale filter.
+
+![Profile gray and colored text compared with monochrome text](docs/screenshots/monochrome-terminal.png)
+
+Offscreen native text-color processing fixture with generic sample text; no personal terminal contents.
+
 ## What comes next
 
 More accessibility improvements are planned, with particular attention to portrait layouts and readable, high-contrast interfaces on monochrome displays.
 
-**A dedicated monochrome mode is not implemented yet.** Future ideas are not included in the current feature list.
+Future ideas are not included in the current feature list.
 
 ## Trying this fork
 

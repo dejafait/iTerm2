@@ -212,6 +212,10 @@ static NSColor *iTermTextDrawingHelperGetTextColor(screen_char_t *c,
     NSColor *rawColor = nil;
     BOOL isMatch = NO;
     const BOOL selected = iTermTextColorContextCellIsSelected(context, index);
+    if (context->colorMap.monochromeTerminal) {
+        const BOOL highlighted = selected || iTermTextColorContextCellIsMatch(context, index);
+        return [context->colorMap monochromeColorForForeground:YES highlighted:highlighted];
+    }
     if (c->faint && colorRun && !context->backgroundColor) {
         context->backgroundColor = [context->delegate unprocessedColorForBackgroundRun:colorRun
                                                            enableBlending:YES];
