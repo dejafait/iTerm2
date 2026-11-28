@@ -70,6 +70,10 @@ NSString *const kProfileSessionHotkeyDidChange = @"kProfileSessionHotkeyDidChang
 @end
 
 @implementation ProfilePreferencesViewController {
+    NSMapTable<NSView *, NSValue *> *_portraitFrames;
+    NSMapTable<NSView *, NSNumber *> *_portraitMasks;
+    NSSize _portraitOriginalParentSize;
+    BOOL _portraitActive;
     IBOutlet ProfileListView *_profilesListView;
 
     // Other actions… under list of profiles in prefs>profiles.
@@ -603,7 +607,7 @@ andEditComponentWithIdentifier:(NSString *)identifier
 }
 
 - (void)resizeWindowForTabViewItem:(NSTabViewItem *)tabViewItem animated:(BOOL)animated {
-    iTermSizeRememberingView *theView = [iTermSizeRememberingView castFrom:[tabViewItem view]];
+    iTermSizeRememberingView *theView = [iTermSizeRememberingView castFrom:[iTermPortraitSettingsCoordinator originalView:tabViewItem.view]];
     if (theView) {
         [self resizeWindowForView:theView animated:animated];
     } else {
@@ -662,6 +666,7 @@ andEditComponentWithIdentifier:(NSString *)identifier
     frame.size.width = MAX([self.preferencePanel preferencePanelMinimumWidth] ?: iTermPreferencePanelGetWindowMinimumWidth(NO),
                            frame.size.width);
 
+    frame = [iTermPortraitSettingsCoordinator adjustedFrame:frame window:self.view.window];
     if (NSEqualRects(_desiredFrame, frame)) {
         return;
     }
@@ -685,6 +690,53 @@ andEditComponentWithIdentifier:(NSString *)identifier
         rect.size.width -= 1;
         [window setFrame:rect display:YES];
     }];
+}
+
+- (void)layoutForPortraitWindow {
+    NSView *container = _tabViewWrapperView.superview;
+    if (!container) { return; }
+    if (!_portraitFrames) {
+        _portraitFrames = [NSMapTable strongToStrongObjectsMapTable];
+        _portraitMasks = [NSMapTable strongToStrongObjectsMapTable];
+        _portraitOriginalParentSize = container.bounds.size;
+        for (NSView *view in @[_profilesListView, _tabViewWrapperView, _noProfileSelectedView,
+                              _otherActionsPopup, _removeProfileButton, _addProfileButton, _toggleTagsButton]) {
+            [_portraitFrames setObject:[NSValue valueWithRect:view.frame] forKey:view];
+            [_portraitMasks setObject:@(view.autoresizingMask) forKey:view];
+        }
+    }
+    const BOOL narrow = [iTermAdvancedSettingsModel portraitSettingsLayout] && self.view.window.frame.size.width <= 900;
+    if (!narrow) {
+        if (!_portraitActive) { return; }
+        const CGFloat dx = container.bounds.size.width - _portraitOriginalParentSize.width;
+        const CGFloat dy = container.bounds.size.height - _portraitOriginalParentSize.height;
+        for (NSView *view in _portraitFrames) {
+            NSRect frame = [_portraitFrames objectForKey:view].rectValue;
+            NSAutoresizingMaskOptions mask = [_portraitMasks objectForKey:view].unsignedIntegerValue;
+            if (mask & NSViewWidthSizable) { frame.size.width += dx; }
+            else if (mask & NSViewMinXMargin) { frame.origin.x += dx; }
+            if (mask & NSViewHeightSizable) { frame.size.height += dy; }
+            else if (mask & NSViewMinYMargin) { frame.origin.y += dy; }
+            view.frame = frame;
+        }
+        _portraitActive = NO;
+        return;
+    }
+    _portraitActive = YES;
+    if (_profilesListView.hidden) {
+        _tabViewWrapperView.frame = container.bounds;
+        return;
+    }
+    const CGFloat listHeight = MIN(140, NSHeight(container.bounds) / 4);
+    _profilesListView.frame = NSMakeRect(10, NSHeight(container.bounds) - listHeight, NSWidth(container.bounds) - 20, listHeight);
+    const CGFloat actionsY = NSMinY(_profilesListView.frame) - 30;
+    for (NSView *view in @[_otherActionsPopup, _removeProfileButton, _addProfileButton, _toggleTagsButton]) {
+        NSRect frame = [_portraitFrames objectForKey:view].rectValue;
+        frame.origin.y = actionsY;
+        view.frame = frame;
+    }
+    _tabViewWrapperView.frame = NSMakeRect(0, 0, NSWidth(container.bounds), MAX(100, actionsY - 8));
+    _noProfileSelectedView.frame = _tabViewWrapperView.frame;
 }
 
 - (void)invalidateSavedSize {

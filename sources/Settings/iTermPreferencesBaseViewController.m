@@ -1238,7 +1238,7 @@ NSString *const iTermPreferencesDidToggleIndicateNonDefaultValues = @"iTermPrefe
 
 - (void)resizeWindowForTabViewItem:(NSTabViewItem *)tabViewItem
                           animated:(BOOL)animated {
-    NSView *theView = tabViewItem.view.subviews.firstObject;
+    NSView *theView = [iTermPortraitSettingsCoordinator originalView:tabViewItem.view].subviews.firstObject;
     [self resizeWindowForView:theView tabView:self.tabView animated:animated];
 }
 
@@ -1274,6 +1274,7 @@ NSString *const iTermPreferencesDidToggleIndicateNonDefaultValues = @"iTermPrefe
     NSRect frame = [self windowFrameForTabViewSize:tabViewSize tabView:tabView];
     frame.size.width = MAX(self.preferencePanel.preferencePanelMinimumWidth ?: iTermPreferencePanelGetWindowMinimumWidth(NO),
                            frame.size.width);
+    frame = [iTermPortraitSettingsCoordinator adjustedFrame:frame window:self.view.window];
     if (NSEqualRects(_desiredFrame, frame)) {
         return;
     }

@@ -135,6 +135,8 @@ final class PSMTabBarMinimumCellAreaTests: XCTestCase {
         XCTAssertEqual(style.intercellSpacing, 2)
         control.height = 36
         control.frame.size.height = 108
+        let snapshotTabs = NSTabView()
+        control.tabView = snapshotTabs
         let nativeWidths = try XCTUnwrap(control.perform(Selector(("wrappingCellWidths")))?.takeUnretainedValue() as? NSArray)
         _ = control.perform(Selector(("_setupCells:")), with: nativeWidths)
         let nativeBitmap = try XCTUnwrap(control.bitmapImageRepForCachingDisplay(in: control.bounds))
