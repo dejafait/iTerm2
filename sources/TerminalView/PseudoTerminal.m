@@ -14943,6 +14943,8 @@ static BOOL iTermApproximatelyEqualRects(NSRect lhs, NSRect rhs, double epsilon)
 // Returns the size of the stuff outside the tabview.
 - (NSSize)windowDecorationSize {
     NSSize decorationSize = NSZeroSize;
+    decorationSize.height += _contentView.mirroredTabBarHeight;
+    decorationSize.width += _contentView.mirroredTabBarWidth;
 
     if (!_contentView.tabBarControl.flashing &&
         [self tabBarShouldBeVisibleWithAdditionalTabs:tabViewItemsBeingAdded]) {

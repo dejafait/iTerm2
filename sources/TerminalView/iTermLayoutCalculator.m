@@ -33,22 +33,41 @@ const int kLayoutTabPositionRight = 3;
 #pragma mark - Main Entry Point
 
 + (iTermLayoutOutputs)calculateLayoutWithInputs:(iTermLayoutInputs)inputs {
+    iTermLayoutOutputs outputs = {0};
     if (!inputs.tabBarVisible) {
-        return [self calculateLayoutWithHiddenTabBarInputs:inputs];
+        outputs = [self calculateLayoutWithHiddenTabBarInputs:inputs];
+    } else {
+        switch (inputs.tabPosition) {
+            case kLayoutTabPositionBottom: outputs = [self calculateLayoutWithVisibleBottomTabBarInputs:inputs]; break;
+            case kLayoutTabPositionLeft: outputs = [self calculateLayoutWithVisibleLeftTabBarInputs:inputs]; break;
+            case kLayoutTabPositionRight: outputs = [self calculateLayoutWithVisibleRightTabBarInputs:inputs]; break;
+            default: outputs = [self calculateLayoutWithVisibleTopTabBarInputs:inputs]; break;
+        }
     }
-
-    switch (inputs.tabPosition) {
-        case kLayoutTabPositionTop:
-            return [self calculateLayoutWithVisibleTopTabBarInputs:inputs];
-        case kLayoutTabPositionBottom:
-            return [self calculateLayoutWithVisibleBottomTabBarInputs:inputs];
-        case kLayoutTabPositionLeft:
-            return [self calculateLayoutWithVisibleLeftTabBarInputs:inputs];
-        case kLayoutTabPositionRight:
-            return [self calculateLayoutWithVisibleRightTabBarInputs:inputs];
-        default:
-            return [self calculateLayoutWithVisibleTopTabBarInputs:inputs];
+    if (inputs.tabBarFlashing) { return outputs; }
+    if (inputs.tabPosition == kLayoutTabPositionTop && inputs.mirroredTabBarHeight > 0 &&
+        (inputs.tabBarVisible || inputs.tabBarOnLoan)) {
+        const CGFloat height = MIN(inputs.mirroredTabBarHeight, MAX(0, outputs.tabViewFrame.size.height - 40));
+        outputs.mirroredTabBarFrame = CGRectMake(CGRectGetMinX(outputs.tabViewFrame),
+                                                CGRectGetMinY(outputs.tabViewFrame),
+                                                CGRectGetWidth(outputs.tabViewFrame), height);
+        outputs.tabViewFrame.origin.y += height;
+        outputs.tabViewFrame.size.height -= height;
+        outputs.decorationHeightBottom += height;
+    } else if (inputs.tabBarVisible && !inputs.tabBarOnLoan && inputs.mirroredTabBarWidth > 0 &&
+               (inputs.tabPosition == kLayoutTabPositionLeft || inputs.tabPosition == kLayoutTabPositionRight)) {
+        const CGFloat width = MIN(inputs.mirroredTabBarWidth, MAX(0, outputs.tabViewFrame.size.width - 80));
+        const BOOL mirrorOnLeft = inputs.tabPosition == kLayoutTabPositionRight;
+        const CGFloat x = mirrorOnLeft ? CGRectGetMinX(outputs.tabViewFrame) : CGRectGetMaxX(outputs.tabViewFrame) - width;
+        outputs.mirroredTabBarFrame = CGRectMake(x, CGRectGetMinY(outputs.tabBarFrame), width, CGRectGetHeight(outputs.tabBarFrame));
+        outputs.tabViewFrame.size.width -= width;
+        outputs.statusBarFrame.size.width = MAX(0, outputs.statusBarFrame.size.width - width);
+        if (mirrorOnLeft) {
+            outputs.tabViewFrame.origin.x += width;
+            outputs.statusBarFrame.origin.x += width;
+        }
     }
+    return outputs;
 }
 
 #pragma mark - Hidden Tab Bar Layout
@@ -206,6 +225,15 @@ const int kLayoutTabPositionRight = 3;
 
     if (inputs.divisionViewVisible) {
         outputs.decorationHeightTop += inputs.divisionViewHeight;
+    }
+
+    if (!inputs.tabBarOnLoan && !inputs.tabBarFlashing && inputs.mirroredTabBarHeight > 0) {
+        outputs.mirroredTabBarFrame = CGRectMake(
+            0,
+            inputs.contentViewHeight - outputs.decorationHeightTop - inputs.mirroredTabBarHeight,
+            CGRectGetWidth(outputs.tabBarFrame),
+            inputs.mirroredTabBarHeight);
+        outputs.decorationHeightTop += inputs.mirroredTabBarHeight;
     }
 
     if (!inputs.tabBarFlashing) {

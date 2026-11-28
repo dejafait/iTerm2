@@ -16,6 +16,74 @@
 import XCTest
 @testable import iTerm2SharedARC
 
+final class PSMMirroredTabBarTests: XCTestCase {
+    private final class Delegate: NSObject, PSMTabBarControlDelegate {
+        var selections = 0
+        var closes = 0
+        var counts = 0
+        func tabViewShouldAllowDrag(onAddTabButton tabView: NSTabView!) -> Bool { false }
+        func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) { selections += 1 }
+        func tabView(_ tabView: NSTabView!, didClose tabViewItem: NSTabViewItem!) { closes += 1 }
+        func tabViewDidChangeNumberOfTabViewItems(_ tabView: NSTabView!) { counts += 1 }
+        func tabView(_ tabView: NSTabView!, updateStateFor tabViewItem: NSTabViewItem!) {}
+    }
+
+    func testMirrorSharesSelectionAndBindingsWithoutDuplicateLifecycleCallbacks() throws {
+        let primary = PSMTabBarControl(frame: NSRect(x: 0, y: 0, width: 600, height: 48))
+        let mirror = PSMTabBarControl(frame: primary.frame)
+        let tabs = NSTabView()
+        let delegate = Delegate()
+        primary.tabView = tabs
+        tabs.delegate = primary
+        primary.delegate = delegate
+        mirror.delegate = delegate
+        primary.mirroredTabBar = mirror
+        for bar in [primary, mirror] {
+            bar.style.tabBar = bar
+            bar.wrapsTabs = true
+            bar.wrappingPreferredColumnCount = 3
+            bar.maximumWrappingRows = 4
+        }
+        for i in 0..<7 {
+            let item = NSTabViewItem(identifier: i)
+            item.label = "Tab \(i) ⚪⚫"
+            tabs.addTabViewItem(item)
+        }
+        primary.synchronizeMirroredTabBar()
+        XCTAssertTrue(tabs.delegate === primary)
+        XCTAssertTrue(mirror.tabView === tabs)
+        XCTAssertEqual(mirror.cells().count, 7)
+        XCTAssertEqual(delegate.counts, 7)
+        let before = delegate.selections
+        mirror.tabView?.selectTabViewItem(at: 5)
+        primary.updateWithoutAnimation()
+        XCTAssertEqual(delegate.selections, before + 1)
+        let selected = try XCTUnwrap((mirror.cells() as? [PSMTabBarCell])?.first {
+            ($0.representedObject as? NSTabViewItem) === tabs.selectedTabViewItem
+        })
+        XCTAssertEqual(selected.state, .on)
+        tabs.tabViewItem(at: 5).label = "Renamed ✅"
+        XCTAssertEqual(selected.stringValue, "Renamed ✅")
+        XCTAssertEqual(mirror.wrappingRowCount(forWidth: 600), 3)
+        let sourceCell = try XCTUnwrap(primary.cells().object(at: 0) as? PSMTabBarCell)
+        sourceCell.tabColor = .red
+        sourceCell.isPinned = true
+        primary.cells().exchangeObject(at: 0, withObjectAt: 1)
+        primary.synchronizeMirroredTabBar()
+        let copiedCells = try XCTUnwrap(mirror.cells() as? [PSMTabBarCell])
+        XCTAssertTrue((copiedCells[1].representedObject as? NSTabViewItem) === tabs.tabViewItem(at: 0))
+        XCTAssertEqual(copiedCells[1].tabColor, .red)
+        XCTAssertTrue(copiedCells[1].isPinned)
+        tabs.removeTabViewItem(tabs.tabViewItem(at: 2))
+        primary.synchronizeMirroredTabBar()
+        XCTAssertEqual(mirror.cells().count, 6)
+        XCTAssertEqual(delegate.closes, 1)
+        XCTAssertEqual(delegate.counts, 8)
+        primary.mirroredTabBar = nil
+        tabs.delegate = nil
+    }
+}
+
 final class PSMTabBarAccessoryClipTests: XCTestCase {
     // Stand-ins for -scrollLeadingMargin and -scrollViewportLength.
     private let leading: CGFloat = 100
