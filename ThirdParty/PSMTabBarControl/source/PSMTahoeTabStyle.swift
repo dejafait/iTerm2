@@ -271,14 +271,14 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
     
     @objc func leftMarginForTabBarControl() -> Float {
         if usesPaletteButtons {
-            return Float(tabBar?.insets.left ?? 0) + Float(PaletteConfiguration.shared.number("marginLeft", fallback: 6))
+            return Float(PaletteConfiguration.shared.number("marginLeft", fallback: 6))
         }
         return Float(tabBar?.insets.left ?? 0) + 2.0
     }
     
     @objc func rightMarginForTabBarControl(withOverflow: Bool, addTabButton: Bool) -> Float {
         if usesPaletteButtons {
-            return Float(tabBar?.insets.right ?? 0) + (withOverflow || addTabButton ? 32 : 0) + Float(PaletteConfiguration.shared.number("marginRight", fallback: 6))
+            return (withOverflow || addTabButton ? 32 : 0) + Float(PaletteConfiguration.shared.number("marginRight", fallback: 6))
         }
         if withOverflow || addTabButton {
             return 32.0 + Float(tabBar?.insets.right ?? 0) + 2.0
@@ -548,8 +548,12 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
             let gap = PaletteConfiguration.shared.number("rowGap", fallback: 6)
             let top = PaletteConfiguration.shared.number("paddingTop", fallback: 0)
             let bottom = PaletteConfiguration.shared.number("paddingBottom", fallback: 0)
-            return NSRect(x: rect.minX, y: rect.minY + gap / 2 + top,
-                          width: rect.width, height: max(1, generic.height - gap - top - bottom))
+            // The generic rect already lost the standard Tahoe container insets.
+            // Palette geometry is explicit: those legacy insets must neither
+            // shrink the button nor enlarge the clear gap between rows.
+            let legacyTop = tabBar?.insets.top ?? 0
+            return NSRect(x: rect.minX, y: rect.minY - legacyTop + gap / 2 + top,
+                          width: rect.width, height: max(1, Self.paletteRowHeight - gap - top - bottom))
         }
         var frame = rect
         if _orientation == .horizontalOrientation {
