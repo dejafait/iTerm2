@@ -540,6 +540,8 @@ DEFINE_BOOL(showPinnedIndicator, NO, SECTION_HOTKEY, NSLocalizedStringWithDefaul
 #pragma mark General
 
 #define SECTION_GENERAL @"General"
+DEFINE_SETTABLE_INT(monochromeTerminal, MonochromeTerminal, 0, SECTION_GENERAL, NSLocalizedStringWithDefaultValue(@"AdvancedSetting.monochromeTerminal", nil, [NSBundle mainBundle], @"Monochrome terminal rendering.\n0 uses profile colors, 1 forces black text on white, and 2 forces white text on black. Applies immediately to existing terminal text, including ANSI, RGB and faint text. Selection, search matches and the cursor use inverted contrast. Does not change tab bars or profile colors.", @"Advanced setting: live terminal-only monochrome rendering; numeric values 0, 1 and 2 are fixed mode identifiers"));
+
 DEFINE_SETTABLE_BOOL(portraitSettingsLayout, PortraitSettingsLayout, NO, SECTION_GENERAL, NSLocalizedStringWithDefaultValue(@"AdvancedSetting.portraitSettingsLayout", nil, [NSBundle mainBundle], @"Use a resizable portrait-friendly Settings window.\nAt widths up to 900 points, settings flow into vertical rows and scroll vertically. Profiles move above their settings. The layout supports an 800-point window without shrinking text. Reopen Settings after changing this option.", @"Advanced setting: portrait-friendly settings layouts for narrow displays"));
 
 DEFINE_SETTABLE_STRING(searchCommand, SearchCommand, @"https://google.com/search?q=%@", SECTION_GENERAL, NSLocalizedStringWithDefaultValue(@"AdvancedSetting.searchCommand", nil, [NSBundle mainBundle], @"Template for URL of search engine.\niTerm2 replaces the string “%@” with the text to search for. Query parameter percent escaping is used.", @"Advanced setting: searchCommand"));

@@ -420,6 +420,8 @@ extern NSString *const iTermAdvancedSettingsDidChange;
 + (BOOL)wrapBottomTabBar;
 + (BOOL)showTopAndBottomTabBars;
 + (void)setShowTopAndBottomTabBars:(BOOL)value;
++ (int)monochromeTerminal;
++ (void)setMonochromeTerminal:(int)value;
 + (BOOL)portraitSettingsLayout;
 + (void)setPortraitSettingsLayout:(BOOL)value;
 + (BOOL)paletteTabBarStyle;

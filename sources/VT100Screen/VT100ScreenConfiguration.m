@@ -38,6 +38,7 @@
 @property (nonatomic, readwrite) BOOL darkMode;
 @property (nonatomic, readwrite) BOOL useSeparateColorsForLightAndDarkMode;
 @property (nonatomic, readwrite) float minimumContrast;
+@property (nonatomic, readwrite) NSInteger monochromeTerminal;
 @property (nonatomic, readwrite) float faintTextAlpha;
 @property (nonatomic, readwrite) double mutingAmount;
 @property (nonatomic, readwrite) iTermUnicodeNormalization normalization;
@@ -98,6 +99,7 @@
 @synthesize darkMode = _darkMode;
 @synthesize useSeparateColorsForLightAndDarkMode = _useSeparateColorsForLightAndDarkMode;
 @synthesize minimumContrast = _minimumContrast;
+@synthesize monochromeTerminal = _monochromeTerminal;
 @synthesize faintTextAlpha = _faintTextAlpha;
 @synthesize mutingAmount = _mutingAmount;
 @synthesize normalization = _normalization;
@@ -160,6 +162,7 @@
         _darkMode = other.darkMode;
         _useSeparateColorsForLightAndDarkMode = other.useSeparateColorsForLightAndDarkMode;
         _minimumContrast = other.minimumContrast;
+        _monochromeTerminal = other.monochromeTerminal;
         _faintTextAlpha = other.faintTextAlpha;
         _mutingAmount = other.mutingAmount;
         _normalization = other.normalization;
@@ -231,6 +234,7 @@
                             @"darkMode": @(_darkMode),
                             @"useSeparateColorsForLightAndDarkMode": @(_useSeparateColorsForLightAndDarkMode),
                             @"minimumContrast": @(_minimumContrast),
+                            @"monochromeTerminal": @(_monochromeTerminal),
                             @"faintTextAlpha": @(_faintTextAlpha),
                             @"mutingAmount": @(_mutingAmount),
                             @"normalization": @(_normalization),
@@ -305,6 +309,7 @@
 @dynamic darkMode;
 @dynamic useSeparateColorsForLightAndDarkMode;
 @dynamic minimumContrast;
+@dynamic monochromeTerminal;
 @dynamic faintTextAlpha;
 @dynamic mutingAmount;
 @dynamic normalization;

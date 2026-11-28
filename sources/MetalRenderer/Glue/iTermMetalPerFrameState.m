@@ -362,7 +362,7 @@ typedef struct {
     // background are all known, so the cursor renderer and the bold path agree.
     // Uses the default background (like the legacy renderer) as the dark test.
     _cursorInfo.useHDRWhite = [iTermCursor shouldUseHDRCursorOnBackground:[drawingHelper defaultBackgroundColor]
-                                                          profileEnabled:drawingHelper.hdrCursorEnabled
+                                                          profileEnabled:drawingHelper.hdrCursorEnabled && !_configuration->_colorMap.monochromeTerminal
                                                        potentialHeadroom:potentialEDR];
     _cursorInfo.hdrBrightness = drawingHelper.hdrCursorBrightness;
     _cursorInfo.password = drawingHelper.passwordInput;
@@ -465,7 +465,7 @@ typedef struct {
                 // smart-picked background that is never drawn (e.g. light-on-white
                 // and illegible). The legacy path does the same via
                 // smart:(_useSmartCursorColor && !hdrCursor).
-                if (drawingHelper.useSmartCursorColor && !_cursorInfo.useHDRWhite) {
+                if (drawingHelper.useSmartCursorColor && !_cursorInfo.useHDRWhite && !_configuration->_colorMap.monochromeTerminal) {
                     smartCursorColor = [[iTermSmartCursorColor alloc] init];
                     smartCursorColor.delegate = self;
                 }
@@ -491,7 +491,7 @@ typedef struct {
                                                              components[1],
                                                              components[2],
                                                              components[3]);
-                } else if (drawingHelper.useSmartCursorColor && _cursorInfo.useHDRWhite) {
+                } else if (drawingHelper.useSmartCursorColor && _cursorInfo.useHDRWhite && !_configuration->_colorMap.monochromeTerminal) {
                     // Smart cursor color is suppressed for the HDR cursor, which
                     // is forced to a full-white block (we are focused here, so
                     // hdrCursorForcesWhiteForType:focused: holds). Black gives the
@@ -518,7 +518,7 @@ typedef struct {
 }
 
 - (void)loadBackgroundImageWithGlue:(id<iTermMetalPerFrameStateDelegate>)glue {
-    _backgroundImage = [glue backgroundImage];
+    _backgroundImage = _configuration->_colorMap.monochromeTerminal ? nil : [glue backgroundImage];
 }
 
 // Replace screen contents with input method editor.
@@ -890,6 +890,9 @@ ambiguousIsDoubleWidth:(BOOL)ambiguousIsDoubleWidth
 }
 
 - (vector_float4)processedDefaultBackgroundColor {
+    if (_configuration->_colorMap.monochromeTerminal) {
+        return [_configuration->_colorMap fastColorForKey:kColorMapBackground];
+    }
     float alpha;
     if (iTermTextIsMonochrome()) {
         if (_backgroundImage) {
@@ -909,6 +912,9 @@ ambiguousIsDoubleWidth:(BOOL)ambiguousIsDoubleWidth
 }
 
 - (vector_float4)colorForHorizontalMargins {
+    if (_configuration->_colorMap.monochromeTerminal) {
+        return [self processedDefaultBackgroundColor];
+    }
     if (!_configuration->_marginColorEnabled) {
         return [self processedDefaultBackgroundColor];
     }
@@ -1635,7 +1641,7 @@ static BOOL iTermMetalSetUnderline(iTermMetalPerFrameState *self,
         attributes[visualX].underlineStyle |= iTermMetalGlyphAttributesUnderlineStrikethroughFlag;
     }
     if (ea) {
-        attributes[visualX].hasUnderlineColor = ea.hasUnderlineColor;
+        attributes[visualX].hasUnderlineColor = ea.hasUnderlineColor && !self->_configuration->_colorMap.monochromeTerminal;
         if (attributes[visualX].hasUnderlineColor) {
             // Resolve any light/dark variant against the current background
             // before converting to a concrete RGB.
@@ -2252,6 +2258,12 @@ static int iTermEmitGlyphsAndSetAttributes(iTermMetalPerFrameState *self,
 
 - (vector_float4)unprocessedColorForBackgroundColorKey:(iTermBackgroundColorKey *)colorKey
                                              isDefault:(BOOL *)isDefault {
+    if (_configuration->_colorMap.monochromeTerminal) {
+        *isDefault = !colorKey->selected && !colorKey->isMatch;
+        NSColor *color = [_configuration->_colorMap monochromeColorForForeground:NO
+                                                                      highlighted:colorKey->selected || colorKey->isMatch];
+        return VectorForColor(color, _configuration->_colorSpace);
+    }
     vector_float4 color = { 0, 0, 0, 0 };
     CGFloat alpha = _configuration->_renderInputs.transparencyAlpha;
     *isDefault = NO;
@@ -2344,6 +2356,11 @@ static int iTermEmitGlyphsAndSetAttributes(iTermMetalPerFrameState *self,
                              colorMode:(ColorMode)theMode
                                   bold:(BOOL)isBold
                           isBackground:(BOOL)isBackground {
+    if (_configuration->_colorMap.monochromeTerminal) {
+        return [_configuration->_colorMap keyForColor:theIndex green:green blue:blue colorMode:theMode
+                                               bold:isBold isBackground:isBackground
+                                 useCustomBoldColor:NO brightenBold:NO];
+    }
     BOOL isBackgroundForDefault = isBackground;
     switch (theMode) {
         case ColorModeAlternate:
@@ -2678,6 +2695,10 @@ static int iTermEmitGlyphsAndSetAttributes(iTermMetalPerFrameState *self,
                                 caches:(iTermMetalPerFrameStateCaches *)caches {
     vector_float4 rawColor = { 0, 0, 0, 0 };
     iTermColorMap *colorMap = _configuration->_colorMap;
+    if (colorMap.monochromeTerminal) {
+        NSColor *color = [colorMap monochromeColorForForeground:YES highlighted:selected || findMatch];
+        return VectorForColor(color, _configuration->_colorSpace);
+    }
     const BOOL needsProcessing = (colorMap.minimumContrast > 0.001 ||
                                   colorMap.dimmingAmount > 0.001 ||
                                   colorMap.mutingAmount > 0.001 ||
