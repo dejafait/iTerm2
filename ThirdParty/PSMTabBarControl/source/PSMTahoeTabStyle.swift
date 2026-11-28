@@ -424,7 +424,7 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
     func adjustedCellRect(_ rect: NSRect, generic: NSRect) -> NSRect {
         var frame = rect
         if _orientation == .horizontalOrientation {
-            frame.origin.y = containerTopInset
+            frame.origin.y = tabBar?.wrapsTabs == true ? rect.origin.y : containerTopInset
         } else {
             frame = frame.insetBy(dx: 4, dy: 0)
         }
@@ -514,8 +514,12 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
     
     @objc func drawTabCell(_ cell: PSMTabBarCell, highlightAmount: CGFloat) {
         let horizontal = (_orientation == .horizontalOrientation)
-        let isFirst = (cell == tabBar?.cells().firstObject as? PSMTabBarCell)
-        let isLast = (cell == tabBar?.cells().lastObject as? PSMTabBarCell)
+        let rowCells = (tabBar?.cells() as? [PSMTabBarCell] ?? []).filter {
+            !$0.isCollapsedHidden && $0.frame.width > 0 &&
+                (tabBar?.wrapsTabs != true || abs($0.frame.midY - cell.frame.midY) < 1)
+        }
+        let isFirst = (cell == rowCells.first)
+        let isLast = (cell == rowCells.last)
         
         if tabBar?.window?.isKeyWindow == true {
             if cell.state == .on {
@@ -654,6 +658,19 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
                               insetY: CGFloat = 0,
                               orientation: PSMTabBarOrientation? = nil) -> NSBezierPath {
         if (orientation ?? _orientation) == .horizontalOrientation {
+            if let bar = tabBar, bar.wrapsTabs {
+                let path = NSBezierPath()
+                let rows = Int(bar.wrappingRowCount(forWidth: bar.bounds.width))
+                for row in 0..<rows {
+                    let container = NSRect(x: containerSideInset - 0.5,
+                                           y: containerTopInset + CGFloat(row) * bar.height,
+                                           width: rect.width - containerSideInset * 2 + 1,
+                                           height: barHeight).insetBy(dx: insetX, dy: insetY)
+                    let radius = max(0, container.height / 2)
+                    path.append(NSBezierPath(roundedRect: container, xRadius: radius, yRadius: radius))
+                }
+                return path
+            }
             let container = NSRect(x: containerSideInset - 0.5,
                                    y: containerTopInset,
                                    width: rect.width - containerSideInset * 2 + 1,
@@ -785,9 +802,12 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
             }
             let sorted = cellsForDividers.sorted { lhs, rhs in
                 if orientation == .horizontalOrientation {
-                    lhs.frame.minX < rhs.frame.minX
+                    if bar.wrapsTabs && lhs.frame.minY != rhs.frame.minY {
+                        return lhs.frame.minY < rhs.frame.minY
+                    }
+                    return lhs.frame.minX < rhs.frame.minX
                 } else {
-                    lhs.frame.minY < rhs.frame.minY
+                    return lhs.frame.minY < rhs.frame.minY
                 }
             }
             // Mid-drag the clip rect can cover only zero-width placeholders, so
@@ -795,7 +815,9 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
             // traps.
             if sorted.count > 1 {
                 for i in 0..<(sorted.count - 1) {
-                    drawDivider(betweenCell: sorted[i], andCell: sorted[i + 1])
+                    if !bar.wrapsTabs || abs(sorted[i].frame.midY - sorted[i + 1].frame.midY) < 1 {
+                        drawDivider(betweenCell: sorted[i], andCell: sorted[i + 1])
+                    }
                 }
             }
             if let selectedCell = drawableCells.first, selectedCell.state == .on {
@@ -906,6 +928,10 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
         if clipRect.isEmpty {
             return
         }
+        if bar.wrapsTabs {
+            drawWrappedTabGroupLabels(bar: bar, clipRect: clipRect)
+            return
+        }
         let horizontal = (orientation == .horizontalOrientation)
         // The bar owns run detection (placeholder transparency, join-slot
         // union); this style only maps each cell to its visible background
@@ -929,6 +955,35 @@ class PSMTahoeTabStyle: NSObject, PSMTabStyle {
                                            groupID: gid,
                                            bar: bar,
                                            isDropTarget: gid == dropTargetGID)
+        }
+    }
+
+    // A horizontal run outline cannot span a line break: its union would cover
+    // unrelated tabs. In a wrapping bar each group keeps a self-contained label
+    // tile instead, and the ordinary per-tab group colors stay in place.
+    private func drawWrappedTabGroupLabels(bar: PSMTabBarControl, clipRect: NSRect) {
+        for chip in (bar.cells() as? [PSMTabBarCell] ?? []) {
+            guard chip.isTabGroupChip, !chip.isCollapsedHidden, !chip.isInOverflowMenu,
+                  let groupID = chip.tabGroupIdentifier,
+                  chip.frame.intersects(clipRect) else { continue }
+            let (color, background, name) = tabGroupChrome(forGroupID: groupID, bar: bar)
+            let rect = backgroundRect(for: chip.frame).insetBy(dx: 1, dy: 1)
+            background.setFill()
+            let shape = NSBezierPath(roundedRect: rect, xRadius: rect.height / 2, yRadius: rect.height / 2)
+            shape.fill()
+            color.setStroke()
+            shape.lineWidth = 2
+            shape.stroke()
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.alignment = .center
+            paragraph.lineBreakMode = .byTruncatingTail
+            let font = Self.groupNameFont
+            let height = ceil(font.ascender - font.descender)
+            let textRect = NSRect(x: rect.minX + 6, y: rect.midY - height / 2,
+                                  width: max(0, rect.width - 12), height: height)
+            (name as NSString).draw(in: textRect, withAttributes: [
+                .font: font, .foregroundColor: NSColor.labelColor, .paragraphStyle: paragraph
+            ])
         }
     }
 

@@ -13,6 +13,12 @@
 (allow file* (subpath "/usr/local/bin/rustup"))
 (allow file* (subpath "/opt/homebrew/Cellar/rustup/"))
 (allow file* (subpath "/usr/local/Cellar/rustup/"))
+; Homebrew rustup dynamically links liblzma. Permit its runtime to load while
+; retaining the default denial for unrelated Homebrew build inputs.
+(allow file-read* (subpath "/opt/homebrew/opt/xz/lib/"))
+(allow file-read* (subpath "/opt/homebrew/Cellar/xz/"))
+(allow file-read* (subpath "/usr/local/opt/xz/lib/"))
+(allow file-read* (subpath "/usr/local/Cellar/xz/"))
 (allow file* (subpath "/opt/homebrew/bin/pkg-config"))
 (allow file* (subpath "/usr/local/bin/pkg-config"))
 (allow file* (subpath "/opt/homebrew/Cellar/pkgconf/"))

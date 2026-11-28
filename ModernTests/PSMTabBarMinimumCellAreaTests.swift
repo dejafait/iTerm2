@@ -19,6 +19,80 @@ import XCTest
 @testable import iTerm2SharedARC
 
 final class PSMTabBarMinimumCellAreaTests: XCTestCase {
+    func testFixedWrappingColumnsStayFixedWhenWindowWidthChanges() {
+        control.wrapsTabs = true
+        control.wrappingMinimumCellWidth = 160
+        control.wrappingPreferredColumnCount = 6
+        addTabCells(7)
+        XCTAssertEqual(control.wrappingColumnCount(forWidth: 900), 6)
+        XCTAssertEqual(control.wrappingColumnCount(forWidth: 450), 6)
+        XCTAssertEqual(control.wrappingRowCount(forWidth: 450), 2)
+        control.wrappingPreferredColumnCount = 0
+        XCTAssertLessThan(control.wrappingColumnCount(forWidth: 450), 6)
+        control.wrappingPreferredColumnCount = 101
+        XCTAssertEqual(control.wrappingColumnCount(forWidth: 900), 100)
+    }
+
+    #if compiler(>=6.2)
+    func testWrappedTahoeClipIncludesSecondRow() throws {
+        guard #available(macOS 26, *) else { throw XCTSkip("Tahoe style requires macOS 26") }
+        let style = PSMTahoeTabStyle()
+        style.tabBar = control
+        control.style = style
+        control.wrapsTabs = true
+        control.height = 36
+        control.wrappingMinimumCellWidth = 160
+        control.maximumWrappingRows = 10
+        let columns = Int(control.wrappingColumnCount(forWidth: barWidth))
+        addTabCells(columns + 1)
+        control.frame.size.height = 72
+        let widths = try XCTUnwrap(control.perform(Selector(("wrappingCellWidths")))?.takeUnretainedValue() as? NSArray)
+        _ = control.perform(Selector(("_setupCells:")), with: widths)
+        let cells = control.cells() as! [PSMTabBarCell]
+        XCTAssertGreaterThan(cells[columns].frame.minY, cells[0].frame.minY,
+                             "The style must not reset every row to the top inset")
+        let path = try XCTUnwrap(style.accessoryClipPath(forTabBar: control))
+        XCTAssertTrue(path.contains(NSPoint(x: 100, y: 10)))
+        XCTAssertTrue(path.contains(NSPoint(x: 100, y: 46)), "A first-row-only clip hides all subsequent rows")
+        XCTAssertFalse(path.contains(NSPoint(x: 100, y: 32)), "The gap between rows should remain clear")
+    }
+    #endif
+
+    func testWrappedTabsReserveRowsAndRemainClickableBelowFirstRow() {
+        control.wrapsTabs = true
+        control.wrappingMinimumCellWidth = 160
+        control.maximumWrappingRows = 10
+        let columns = Int(control.wrappingColumnCount(forWidth: barWidth))
+        addTabCells(columns + 1)
+        XCTAssertEqual(control.wrappingRowCount(forWidth: barWidth), 2)
+        control.frame.size.height = control.height * 2
+        guard let widths = control.perform(Selector(("wrappingCellWidths")))?.takeUnretainedValue() as? NSArray else {
+            XCTFail("No wrapping widths")
+            return
+        }
+        _ = control.perform(Selector(("_setupCells:")), with: widths)
+        let cells = control.cells() as! [PSMTabBarCell]
+        XCTAssertGreaterThan(cells[columns].frame.minY, cells[0].frame.minY)
+        XCTAssertFalse(cells[columns].frame.intersects(cells[0].frame))
+        let point = NSPoint(x: cells[columns].frame.midX, y: cells[columns].frame.midY)
+        XCTAssertTrue((control.cell(for: point, cellFrame: nil) as? PSMTabBarCell) === cells[columns])
+    }
+
+    func testWrappingIgnoresCollapsedCellsAndLimitsHeight() {
+        control.wrapsTabs = true
+        control.wrappingMinimumCellWidth = 160
+        control.maximumWrappingRows = 2
+        let columns = Int(control.wrappingColumnCount(forWidth: barWidth))
+        addTabCells(columns)
+        let hidden = PSMTabBarCell(controlView: control)!
+        hidden.isCollapsedHidden = true
+        control.cells().add(hidden)
+        XCTAssertEqual(control.wrappingRowCount(forWidth: barWidth), 1)
+        addTabCells(columns * 3)
+        XCTAssertEqual(control.wrappingRowCount(forWidth: barWidth), 2)
+        XCTAssertEqual(control.wrappingColumnCount(forWidth: 1), 1)
+    }
+
     private let barWidth: CGFloat = 900
     private var control: PSMTabBarControl!
 

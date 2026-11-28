@@ -324,6 +324,17 @@ extern const CGFloat PSMTabBarProgressBarHeight;
 @property(nonatomic, assign) NSEdgeInsets insets;
 @property(nonatomic) CGFloat height;
 
+// Optional wrapping for a horizontal bar. The owner reserves the resulting
+// height; height remains the height of a single row.
+@property(nonatomic) BOOL wrapsTabs;
+@property(nonatomic) CGFloat wrappingMinimumCellWidth;
+// Zero chooses columns from the minimum width; positive values fix the count.
+@property(nonatomic) NSUInteger wrappingPreferredColumnCount;
+@property(nonatomic) NSUInteger maximumWrappingRows;
+@property(nonatomic, copy, nullable) void (^wrappingHeightDidChange)(void);
+- (NSUInteger)wrappingColumnCountForWidth:(CGFloat)width;
+- (NSUInteger)wrappingRowCountForWidth:(CGFloat)width;
+
 - (void)setTabColor:(nullable NSColor *)aColor forTabViewItem:(NSTabViewItem *) tabViewItem;
 - (nullable NSColor*)tabColorForTabViewItem:(NSTabViewItem*)tabViewItem;
 // Push every tab's group membership at once: identifiers[i] is the group id

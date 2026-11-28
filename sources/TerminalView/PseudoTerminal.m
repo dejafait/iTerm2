@@ -14942,7 +14942,10 @@ static BOOL iTermApproximatelyEqualRects(NSRect lhs, NSRect rhs, double epsilon)
             case PSMTab_TopTab:
             case PSMTab_BottomTab:
                 if (![self tabBarIsVisibleInTitleBarAccessory]) {
-                    decorationSize.height += _contentView.tabBarControl.height;
+                    iTermTabBarControlView *bar = _contentView.tabBarControl;
+                    const NSUInteger rows = bar.wrapsTabs
+                        ? [bar wrappingRowCountForWidth:NSWidth(_contentView.bounds)] : 1;
+                    decorationSize.height += bar.height * rows;
                 }
                 break;
             case PSMTab_LeftTab:
