@@ -418,6 +418,8 @@ extern NSString *const iTermAdvancedSettingsDidChange;
 + (int)optimumTabWidth;
 + (int)scrollableTabWidth;
 + (BOOL)wrapBottomTabBar;
++ (BOOL)paletteTabBarStyle;
++ (void)setPaletteTabBarStyle:(BOOL)value;
 + (int)wrappedTabMinimumWidth;
 + (int)wrappedTabColumnCount;
 + (BOOL)oscColorReport16Bits;

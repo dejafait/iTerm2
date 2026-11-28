@@ -6,7 +6,7 @@ The goal is to add practical accessibility and usability improvements, particula
 
 ## Available now: multi-row bottom tabs
 
-There is currently **one custom native feature**: a bottom tab bar that wraps onto multiple rows. It makes large collections of tabs easier to read when horizontal space is limited.
+The first custom native feature is a bottom tab bar that wraps onto multiple rows. It makes large collections of tabs easier to read when horizontal space is limited.
 
 - Rows occupy their own space below the terminal instead of covering its contents.
 - Choose automatic sizing based on minimum tab width, or a fixed number of tabs per row, such as six.
@@ -27,6 +27,117 @@ Native renderer fixture with sample titles; no personal terminal contents.
 4. In automatic mode, adjust **Minimum width of tabs in a wrapping bottom tab bar** if desired (default: 160 points). Fixed columns override this minimum.
 
 The implementation and current testing notes are available in [the draft pull request within this fork](https://github.com/dejafait/iTerm2/pull/1). It is not an upstream submission. Broader manual testing, including dragging, tab groups and fullscreen, is still needed.
+
+## Configurable palette-style tabs
+
+![Palette buttons in three rows](docs/screenshots/palette-three-rows.png)
+
+Native renderer fixture with sample titles and an active-window state; no private terminal content.
+
+The second feature is an opt-in, high-contrast button style for wrapping horizontal tabs on macOS 26 or later (Tahoe renderer). Enable **Settings → Advanced → Palette tab bar style** after enabling wrapping bottom tabs. No default theme is changed.
+
+Appearance can be edited without rebuilding or restarting. Create `tab-style.json` in the application’s Application Support directory: normally `~/Library/Application Support/iTerm2/`, or the explicit suite directory when launched with `-suite` (for example `iterm22-preview`). The file is checked twice per second; valid changes trigger the preferences/layout refresh. Invalid JSON or an unsupported version retains the last valid snapshot.
+
+```json
+{
+  "version": 1,
+  "height": 36,
+  "rowGap": 6,
+  "columnGap": 6,
+  "cornerRadius": 7,
+  "horizontalPadding": 8,
+  "marginLeft": 6,
+  "marginRight": 6,
+  "barBackground": "#ffffff",
+  "truncation": "middle",
+  "indicators": {
+    "activity": {
+      "enabled": false,
+      "position": "right"
+    },
+    "counter": {
+      "enabled": false,
+      "position": "right"
+    },
+    "progress": {
+      "enabled": true,
+      "position": "outline"
+    },
+    "status": {
+      "enabled": false,
+      "position": "right"
+    },
+    "graphic": {
+      "enabled": false,
+      "position": "right"
+    },
+    "pin": {
+      "enabled": false,
+      "position": "right"
+    },
+    "close": {
+      "enabled": true,
+      "position": "left"
+    }
+  },
+  "states": {
+    "activeUnselected": {
+      "background": "#ffffff",
+      "foreground": "#000000",
+      "border": "#000000",
+      "borderWidth": 2,
+      "fontFamily": "",
+      "fontSize": 17,
+      "fontWeight": "medium",
+      "italic": false
+    },
+    "activeSelected": {
+      "background": "#eeeeee",
+      "foreground": "#000000",
+      "border": "#000000",
+      "borderWidth": 2,
+      "fontFamily": "",
+      "fontSize": 17,
+      "fontWeight": "medium",
+      "italic": false
+    },
+    "inactiveUnselected": {
+      "background": "#ffffff",
+      "foreground": "#000000",
+      "border": "#000000",
+      "borderWidth": 2,
+      "fontFamily": "",
+      "fontSize": 17,
+      "fontWeight": "medium",
+      "italic": false
+    },
+    "inactiveSelected": {
+      "background": "#eeeeee",
+      "foreground": "#000000",
+      "border": "#000000",
+      "borderWidth": 2,
+      "fontFamily": "",
+      "fontSize": 17,
+      "fontWeight": "medium",
+      "italic": false
+    }
+  },
+  "paddingTop": 0,
+  "paddingBottom": 0,
+  "columnGapColor": "#ffffff",
+  "marginTopColor": "#ffffff",
+  "marginBottomColor": "#ffffff",
+  "marginLeftColor": "#ffffff",
+  "marginRightColor": "#ffffff"
+}
+```
+
+- `height` is the actual button height in points (16–240), independent of `rowGap`. Palette geometry excludes the legacy Tahoe container insets: a 36-point button with `rowGap: 6`, `columnGap: 6` and `marginLeft: 6` keeps those exact visible dimensions, including in real windows with nonzero theme insets. Together with `paddingTop` and `paddingBottom` they form row pitch. `columnGap`, `marginLeft`, `marginRight`, `horizontalPadding` and `cornerRadius` control spacing and shape.
+- `barBackground` colors the space around buttons; `columnGapColor` and `marginTopColor`, `marginBottomColor`, `marginLeftColor`, `marginRightColor` can override each surrounding region. Colors accept #RRGGBB or #RRGGBBAA.
+- The four independent states are selected/unselected × active/inactive window. Each accepts background, foreground, border, borderWidth, fontFamily (PostScript name; empty means system), fontSize, fontWeight (light/regular/medium/semibold/bold/heavy), and italic. The example keeps inactive-window contrast identical and uses a light gray selected background.
+- `truncation`: `head` removes the beginning and preserves the suffix; `tail` preserves the beginning; `middle` keeps both ends; `clip` clips without an ellipsis. This applies consistently to the entire title and its existing emoji, without changing the actual tab name.
+- Native activity, counter, status, graphic, pin and close decorations support enabled and left/right placement. Progress supports enabled and left/right/outline placement. The title’s own emoji remain part of the title; no emoji are synthesized by this renderer.
+- Native profile settings still control terminal text fonts/colors. This file controls tab labels. Small heights intentionally clip oversized text; choose height appropriate to the selected font.
 
 ## What comes next
 
