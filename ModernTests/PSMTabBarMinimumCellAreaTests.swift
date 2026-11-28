@@ -34,6 +34,63 @@ final class PSMTabBarMinimumCellAreaTests: XCTestCase {
     }
 
     #if compiler(>=6.2)
+    func testWrappedTabsReclaimHiddenButtonSpaceButKeepRealOverflow() throws {
+        guard #available(macOS 26, *) else { throw XCTSkip("Tahoe style requires macOS 26") }
+        let style = PSMTahoeTabStyle()
+        style.tabBar = control
+        control.style = style
+        control.wrapsTabs = true
+        control.wrappingPreferredColumnCount = 6
+        control.maximumWrappingRows = 0
+        control.showAddTabButton = false
+        addTabCells(13)
+        func firstWidth() throws -> CGFloat {
+            let widths = try XCTUnwrap(control.perform(Selector(("wrappingCellWidths")))?.takeUnretainedValue() as? [NSNumber])
+            return try XCTUnwrap(widths.first).doubleValue
+        }
+        let fullWidth = try firstWidth()
+        let spacing = CGFloat(style.intercellSpacing)
+        let left = CGFloat(style.leftMarginForTabBarControl())
+        let right = CGFloat(style.rightMarginForTabBarControl(withOverflow: false, addTabButton: false))
+        XCTAssertEqual(fullWidth, floor((barWidth - left - right - 5 * spacing) / 6))
+        control.showAddTabButton = true
+        let withButton = try firstWidth()
+        XCTAssertLessThan(withButton, fullWidth)
+        control.showAddTabButton = false
+        XCTAssertEqual(try firstWidth(), fullWidth)
+        control.maximumWrappingRows = 2
+        XCTAssertEqual(try firstWidth(), withButton, "A real overflow menu must still have room")
+        let widths = try XCTUnwrap(control.perform(Selector(("wrappingCellWidths")))?.takeUnretainedValue() as? NSArray)
+        XCTAssertEqual(widths.count, 12)
+        control.maximumWrappingRows = 3
+        XCTAssertEqual(try firstWidth(), fullWidth, "Reclaim the space again when all tabs fit")
+    }
+
+    func testAutomaticWrappingUsesFullWidthUntilOverflowIsNeeded() throws {
+        guard #available(macOS 26, *) else { throw XCTSkip("Tahoe style requires macOS 26") }
+        let style = PSMTahoeTabStyle()
+        style.tabBar = control
+        control.style = style
+        control.wrapsTabs = true
+        control.showAddTabButton = false
+        control.wrappingPreferredColumnCount = 0
+        control.wrappingMinimumCellWidth = 100
+        control.maximumWrappingRows = 1
+        let spacing = CGFloat(style.intercellSpacing)
+        let exactWidth = CGFloat(style.leftMarginForTabBarControl()) +
+            CGFloat(style.rightMarginForTabBarControl(withOverflow: false, addTabButton: false)) +
+            6 * 100 + 5 * spacing
+        addTabCells(6)
+        XCTAssertEqual(control.wrappingColumnCount(forWidth: exactWidth), 6)
+        addTabCells(1)
+        XCTAssertEqual(control.wrappingColumnCount(forWidth: exactWidth), 5)
+        control.maximumWrappingRows = 0
+        XCTAssertEqual(control.wrappingColumnCount(forWidth: exactWidth), 6)
+        control.maximumWrappingRows = 1
+        control.cells().lastObject.map { ($0 as! PSMTabBarCell).isCollapsedHidden = true }
+        XCTAssertEqual(control.wrappingColumnCount(forWidth: exactWidth), 6)
+    }
+
     func testWrappedTahoeClipIncludesSecondRow() throws {
         guard #available(macOS 26, *) else { throw XCTSkip("Tahoe style requires macOS 26") }
         let style = PSMTahoeTabStyle()

@@ -1778,25 +1778,37 @@ static CAShapeLayer *PSMMaskShapeForPath(NSBezierPath *path, NSRect subviewFrame
     [self update:NO];
 }
 
-- (NSUInteger)wrappingColumnCountForWidth:(CGFloat)width {
-    if (self.wrappingPreferredColumnCount > 0) {
-        return MIN(100, self.wrappingPreferredColumnCount);
-    }
-    const CGFloat margins = [_style leftMarginForTabBarControl] +
-        [_style rightMarginForTabBarControlWithOverflow:YES addTabButton:self.showAddTabButton];
-    const CGFloat available = MAX(1, width - margins);
-    const CGFloat spacing = _style.intercellSpacing;
-    return MAX(1, (NSUInteger)floor((available + spacing) /
-                                    (MAX(40, self.wrappingMinimumCellWidth) + spacing)));
-}
-
-- (NSUInteger)wrappingRowCountForWidth:(CGFloat)width {
+- (NSUInteger)wrappingVisibleCellCount {
     NSUInteger count = 0;
     for (PSMTabBarCell *cell in _cells) {
         if (!cell.isCollapsedHidden) {
             count++;
         }
     }
+    return count;
+}
+
+- (NSUInteger)wrappingColumnCountForWidth:(CGFloat)width {
+    if (self.wrappingPreferredColumnCount > 0) {
+        return MIN(100, self.wrappingPreferredColumnCount);
+    }
+    const CGFloat spacing = _style.intercellSpacing;
+    const CGFloat minimumWidth = MAX(40, self.wrappingMinimumCellWidth);
+    // First try the full width. Reserve the overflow button only when the row
+    // limit actually hides tabs; an unlimited wrapped bar never needs it.
+    const CGFloat available = MAX(1, width - [_style leftMarginForTabBarControl] -
+        [_style rightMarginForTabBarControlWithOverflow:NO addTabButton:self.showAddTabButton]);
+    const NSUInteger columns = MAX(1, (NSUInteger)floor((available + spacing) / (minimumWidth + spacing)));
+    if (!self.maximumWrappingRows || [self wrappingVisibleCellCount] <= columns * self.maximumWrappingRows) {
+        return columns;
+    }
+    const CGFloat overflowAvailable = MAX(1, width - [_style leftMarginForTabBarControl] -
+        [_style rightMarginForTabBarControlWithOverflow:YES addTabButton:self.showAddTabButton]);
+    return MAX(1, (NSUInteger)floor((overflowAvailable + spacing) / (minimumWidth + spacing)));
+}
+
+- (NSUInteger)wrappingRowCountForWidth:(CGFloat)width {
+    const NSUInteger count = [self wrappingVisibleCellCount];
     const NSUInteger columns = [self wrappingColumnCountForWidth:width];
     const NSUInteger rows = MAX(1, (count + columns - 1) / columns);
     return self.maximumWrappingRows ? MIN(rows, self.maximumWrappingRows) : rows;
@@ -1805,7 +1817,8 @@ static CAShapeLayer *PSMMaskShapeForPath(NSBezierPath *path, NSRect subviewFrame
 - (NSArray<NSNumber *> *)wrappingCellWidths {
     const NSUInteger columns = [self wrappingColumnCountForWidth:NSWidth(self.bounds)];
     const NSUInteger rows = [self wrappingRowCountForWidth:NSWidth(self.bounds)];
-    const CGFloat width = MAX(1, [self availableCellWidthWithOverflow:YES]);
+    const BOOL overflow = [self wrappingVisibleCellCount] > columns * rows;
+    const CGFloat width = MAX(1, [self availableCellWidthWithOverflow:overflow]);
     const CGFloat cellWidth = MAX(1, floor((width - (columns - 1) * _style.intercellSpacing) / columns));
     NSMutableArray<NSNumber *> *result = [NSMutableArray array];
     NSUInteger visible = 0;
