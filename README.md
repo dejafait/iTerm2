@@ -132,7 +132,7 @@ Appearance can be edited without rebuilding or restarting. Create `tab-style.jso
 }
 ```
 
-- `height` is the button height in points (16–240), independent of `rowGap`. Together with `paddingTop` and `paddingBottom` they form row pitch. `columnGap`, `marginLeft`, `marginRight`, `horizontalPadding` and `cornerRadius` control spacing and shape.
+- `height` is the actual button height in points (16–240), independent of `rowGap`. Palette geometry excludes the legacy Tahoe container insets: a 36-point button with `rowGap: 6`, `columnGap: 6` and `marginLeft: 6` keeps those exact visible dimensions, including in real windows with nonzero theme insets. Together with `paddingTop` and `paddingBottom` they form row pitch. `columnGap`, `marginLeft`, `marginRight`, `horizontalPadding` and `cornerRadius` control spacing and shape.
 - `barBackground` colors the space around buttons; `columnGapColor` and `marginTopColor`, `marginBottomColor`, `marginLeftColor`, `marginRightColor` can override each surrounding region. Colors accept #RRGGBB or #RRGGBBAA.
 - The four independent states are selected/unselected × active/inactive window. Each accepts background, foreground, border, borderWidth, fontFamily (PostScript name; empty means system), fontSize, fontWeight (light/regular/medium/semibold/bold/heavy), and italic. The example keeps inactive-window contrast identical and uses a light gray selected background.
 - `truncation`: `head` removes the beginning and preserves the suffix; `tail` preserves the beginning; `middle` keeps both ends; `clip` clips without an ellipsis. This applies consistently to the entire title and its existing emoji, without changing the actual tab name.

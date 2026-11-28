@@ -138,7 +138,11 @@ final class PSMTabBarMinimumCellAreaTests: XCTestCase {
         guard #available(macOS 26, *) else { throw XCTSkip("Tahoe style requires macOS 26") }
         let previous = iTermAdvancedSettingsModel.paletteTabBarStyle()
         let previousHeight = iTermAdvancedSettingsModel.defaultTabBarHeight()
+        let configuration = PaletteConfiguration.shared
+        let previousConfiguration = try JSONSerialization.data(withJSONObject: configuration.values)
+        configuration.apply(data: Data(##"{"height":36,"rowGap":6,"columnGap":6,"marginLeft":6,"marginRight":6}"##.utf8))
         defer {
+            configuration.apply(data: previousConfiguration)
             iTermAdvancedSettingsModel.setPaletteTabBarStyle(previous)
             iTermAdvancedSettingsModel.setDefaultTabBarHeight(previousHeight)
         }
@@ -150,6 +154,9 @@ final class PSMTabBarMinimumCellAreaTests: XCTestCase {
         control.wrapsTabs = true
         control.wrappingPreferredColumnCount = 6
         control.maximumWrappingRows = 10
+        // Match the real Tahoe container; zero-inset fixtures hid the extra
+        // vertical and horizontal margins in the original implementation.
+        control.insets = NSEdgeInsets(top: 0, left: 8, bottom: 8, right: 8)
         control.height = PSMTahoeTabStyle.paletteRowHeight
         control.frame.size.height = control.height * 3
         addTabCells(14)
@@ -159,7 +166,9 @@ final class PSMTabBarMinimumCellAreaTests: XCTestCase {
         XCTAssertEqual(control.wrappingRowCount(forWidth: barWidth), 3)
         XCTAssertEqual(style.intercellSpacing, 6)
         XCTAssertGreaterThanOrEqual(control.height, 42)
-        XCTAssertEqual(cells[0].frame.height, control.height - 6)
+        XCTAssertEqual(cells[0].frame.minX, 6, accuracy: 0.01)
+        XCTAssertEqual(cells[0].frame.minY, 3, accuracy: 0.01)
+        XCTAssertEqual(cells[0].frame.height, 36, accuracy: 0.01)
         XCTAssertEqual(cells[1].frame.minX - cells[0].frame.maxX, 6, accuracy: 0.01)
         XCTAssertEqual(cells[6].frame.minY - cells[0].frame.maxY, 6, accuracy: 0.01)
         for cell in cells {
